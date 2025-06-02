@@ -32,7 +32,7 @@ typedef struct Queue
 typedef struct Change_cost_data
 {
     int hexagon_index;
-    int dist;
+    int distance;
 } Change_cost_data;
 
 void queue_push(Queue *queue, const void *data, size_t data_size)
@@ -302,7 +302,7 @@ STATUS change_cost(int x, int y, int v, int raggio)
         if (inBounds(adx, ady))
         {
             Change_cost_data d;
-            d.dist = 1;
+            d.distance = 1;
             d.hexagon_index = toIndex(adx, ady);
             queue_push(&q, &d, sizeof(d));
         }
@@ -311,17 +311,17 @@ STATUS change_cost(int x, int y, int v, int raggio)
     while (queue_size(&q))
     {
         Change_cost_data *data = (Change_cost_data *)queue_front(&q);
-        int dist = data->dist;
+        int distance = data->distance;
         index = data->hexagon_index;
         queue_pop(&q);
         // process
-        if (visited[index] == 0 || visited[index] > dist)
+        if (visited[index] == 0 || visited[index] > distance)
         {
-            visited[index] = dist;
-            map[index].cost = map[index].cost + v * (raggio - dist) / raggio;
+            visited[index] = distance;
+            map[index].cost = map[index].cost + v * (raggio - distance) / raggio;
             if (map[index].cost < 0)
                 map[index].cost = 1;
-            if (dist + 1 < raggio)
+            if (distance + 1 < raggio)
             {
                 // aggiungi i figli alla coda
                 for (int i = 0; i < 6; i++)
@@ -333,9 +333,9 @@ STATUS change_cost(int x, int y, int v, int raggio)
                     if (inBounds(adx, ady))
                     {
                         Change_cost_data d;
-                        d.dist = dist + 1;
+                        d.distance = distance + 1;
                         d.hexagon_index = toIndex(adx, ady);
-                        if (visited[d.hexagon_index] == 0 || visited[d.hexagon_index] > d.dist + 1)
+                        if (visited[d.hexagon_index] == 0 || visited[d.hexagon_index] > d.distance)
                             queue_push(&q, &d, sizeof(d));
                     }
                 }
