@@ -4,11 +4,32 @@
 #include <string.h>
 #include <math.h>
 
-// libreria helper
-#include "debug.h"
+// helper macros
+// #define _DEBUG
 
-// define
+#ifdef _DEBUG
+#include <stdio.h>
+
+#define TRACE(x) printf("%s : %d", #x, x)
+#define HEXTRACE(x) printf("%s : %x", #x, x)
+#define STRTRACE(x) printf("%s : %s", #x, x)
+#define STRINFO(x) printf("%s[%d] : %s", #x, x, strlen(x) + 1)
+#define DEBUGPRINT(msg) printf("[DEBUG] : %s [END]\n", msg);
+
+#else
+
+#define TRACE(x)
+#define HEXTRACE(x)
+#define STRTRACE(x)
+#define STRINFO(x)
+#define DEBUGPRINT(msg)
+
+#endif
+
+// defines
 #define BUFFER_SIZE 50
+#define AIR_ROUTE_LIMIT 5
+#define CACHE_UNSET -42
 #define OK "OK\n"
 #define KO "KO\n"
 
@@ -39,7 +60,7 @@ void queue_push(Queue *queue, const void *data, size_t data_size)
 {
     if (queue->head == NULL)
     {
-        queue->head = (struct Queue_node *)malloc(sizeof(Queue_node));
+        queue->head = (Queue_node *)malloc(sizeof(Queue_node));
         queue->head->next = NULL;
         queue->head->data = malloc(data_size);
         memcpy(queue->head->data, data, data_size);
@@ -48,7 +69,7 @@ void queue_push(Queue *queue, const void *data, size_t data_size)
     }
     else
     {
-        queue->back->next = (struct Queue_node *)malloc(sizeof(Queue_node));
+        queue->back->next = (Queue_node *)malloc(sizeof(Queue_node));
         queue->back = queue->back->next;
         queue->back->data = malloc(data_size);
         queue->back->next = NULL;
@@ -61,21 +82,17 @@ void queue_push(Queue *queue, const void *data, size_t data_size)
 
 void queue_pop(Queue *queue)
 {
-    queue->size--;
-    free(queue->head->data);
-    if (queue->head->next)
-    {
-        Queue_node *tmp = queue->head->next;
-        free(queue->head);
-        queue->head = tmp;
-    }
-    else
-    {
-        free(queue->head);
-        queue->head = NULL;
+    if (!queue || !queue->head)
+        return;
+    Queue_node *toRemove = queue->head;
+    queue->head = queue->head->next;
+    if (!queue->head)
         queue->back = NULL;
-        queue->size = 0;
-    }
+
+    if (toRemove->data)
+        free(toRemove->data);
+    free(toRemove);
+    queue->size--;
 }
 
 void *queue_front(Queue *queue)
@@ -88,6 +105,14 @@ int queue_size(Queue *queue)
     return queue->size;
 }
 
+void queue_destroy(Queue *queue)
+{
+    while (queue->head)
+    {
+        queue_pop(queue);
+    }
+}
+
 // Air route definition
 typedef struct Air_route
 {
@@ -95,7 +120,7 @@ typedef struct Air_route
     int hexagon_index;
 } Air_route;
 
-// Air Route List node
+// List node
 typedef struct List_node
 {
     void *data;
@@ -114,70 +139,89 @@ void list_push(List *list, void *data, size_t data_size)
 {
     if (list->head == NULL)
     {
-        list->head = (struct List_node *)malloc(sizeof(List_node));
-        list->back = list->head;
+        // empty list
+        list->head = (List_node *)malloc(sizeof(List_node));
         list->head->next = NULL;
         list->head->previous = NULL;
+        list->back = list->head;
+        // data allocation
         list->head->data = malloc(data_size);
         memcpy(list->head->data, data, data_size);
         list->size = 1;
     }
     else
     {
-        list->back->next = (struct List_node *)malloc(sizeof(List_node));
+        list->back->next = (List_node *)malloc(sizeof(List_node));
         list->back->next->previous = list->back;
-        list->back->next->next = NULL;
         list->back = list->back->next;
-        if (list->size == 1)
-            list->head->next = list->back;
-
+        list->back->next = NULL;
         list->back->data = malloc(data_size);
-        memcpy(list->head->data, data, data_size);
+        memcpy(list->back->data, data, data_size);
         list->size++;
     }
 }
 
 void list_pop(List *list, List_node *toRemove)
 {
-    free(toRemove->data);
+    if (!list || !toRemove || list->size == 0)
+        return;
+
+    if (list->size == 1 && list->head == toRemove)
+    {
+        free(toRemove->data);
+        free(toRemove);
+        list->head = NULL;
+        list->back = NULL;
+        list->size = 0;
+        return;
+    }
+
     if (toRemove == list->head)
     {
-        if (list->head->next)
-            list->head = list->head->next;
-        list->head->previous = NULL;
+        list->head = list->head->next;
+        if (list->head)
+            list->head->previous = NULL;
+        else
+            list->back = NULL;
+        free(toRemove->data);
         free(toRemove);
         list->size--;
-
         return;
     }
+
     if (toRemove == list->back)
     {
-        if (list->head->previous)
-            list->back = list->back->previous;
-        list->back->next = NULL;
+        list->back = list->back->previous;
+        if (list->back)
+            list->back->next = NULL;
+        else
+            list->head = NULL;
+        free(toRemove->data);
         free(toRemove);
         list->size--;
-
         return;
     }
-    List_node *it = list->head;
-    while (it != toRemove && it != NULL)
-    {
-        it = it->next;
-    }
-    if (it != NULL)
-    {
-        it->next->previous = it->previous;
-        it->previous->next = it->next;
-        list->size--;
-        free(it);
-    }
+
+    toRemove->previous->next = toRemove->next;
+    toRemove->next->previous = toRemove->previous;
+
+    free(toRemove->data);
+    free(toRemove);
+    list->size--;
+    return;
+}
+
+void list_destroy(List *list)
+{
+    while (list->head)
+        list_pop(list, list->head);
 }
 
 size_t list_size(List *list)
 {
     return list->size;
 }
+// Stack
 
 // Hexagon type definition
 typedef struct
@@ -199,8 +243,8 @@ int MAPX = 0;
 int MAPY = 0;
 int adiacenze[2][6][2] = {
     {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {-1, 1}, {-1, -1}},
-    {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, -1}, {1, 1}}
-};
+    {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, -1}, {1, 1}}};
+int *cache = NULL;
 
 // Functions
 /**
@@ -226,7 +270,13 @@ STATUS inBounds(int x, int y)
  */
 int toIndex(int x, int y)
 {
-    return x + y * MAPX;
+    return y * MAPX + x;
+}
+
+void toCoord(int index, int *x, int *y)
+{
+    *x = index % MAPX;
+    *y = index / MAPX;
 }
 
 // init
@@ -241,16 +291,28 @@ STATUS init(int x, int y)
 {
     if (x <= 0 || y <= 0)
         return (STATUS)1;
+
+    // rilascio della memoria
+    if (map)
+    {
+        // destroy air_route_list
+        for (int i = 0; i < MAPSIZE; i++)
+        {
+            list_destroy(&map[i].air_routes);
+        }
+        free(map);
+    }
     // init variabili grandezza
     MAPSIZE = x * y;
     MAPX = x;
     MAPY = y;
-    // rilascio della memoria
-    if (map)
-        free(map);
     map = (Hexagon *)malloc(MAPSIZE * sizeof(Hexagon));
     // invalidate cache
-    // TODO
+    // if (cache)
+    //     free(cache);
+    // cache = (int *)malloc(2 * MAPSIZE * sizeof(int));
+    // for (int i = 0; i < 2 * MAPSIZE; i++)
+    //     cache[i] = CACHE_UNSET;
 
     // init cycle
     for (int i = 0; i < MAPSIZE; i++)
@@ -276,16 +338,22 @@ STATUS init(int x, int y)
  */
 STATUS change_cost(int x, int y, int v, int raggio)
 {
-    if (!inBounds(x, y))
+    // check if map exists
+    if (!map)
         return (STATUS)1;
-    if (v < -10 || v > 10)
+    if (!inBounds(x, y))
         return (STATUS)2;
-    if (raggio <= 0)
+    if (v < -10 || v > 10)
         return (STATUS)3;
+    if (raggio <= 0)
+        return (STATUS)4;
     // change cost of the (x,y) hexagon
     int index = toIndex(x, y);
     map[index].cost = map[index].cost + v;
-
+    if (map[index].cost < 0)
+        map[index].cost = 0;
+    if (map[index].cost > 100)
+        map[index].cost = 100;
     int *visited = (int *)calloc(MAPSIZE, sizeof(int));
     visited[index] = 1;
 
@@ -294,7 +362,6 @@ STATUS change_cost(int x, int y, int v, int raggio)
     q.back = NULL;
     q.size = 0;
     // breeadth first visit
-    // TODO
     for (int i = 0; i < 6; i++)
     {
         int adx = x + adiacenze[y % 2][i][0];
@@ -319,8 +386,26 @@ STATUS change_cost(int x, int y, int v, int raggio)
         {
             visited[index] = distance;
             map[index].cost = map[index].cost + v * (raggio - distance) / raggio;
+            // limit the cost to the interval [1,100]
             if (map[index].cost < 0)
-                map[index].cost = 1;
+                map[index].cost = 0;
+            if (map[index].cost > 100)
+                map[index].cost = 100;
+            if (map[index].air_routes.size != 0)
+            {
+                List_node *it = map[index].air_routes.head;
+                while (it)
+                {
+                    Air_route *a = (Air_route *)(it->data);
+                    a->cost = a->cost + v * (raggio - distance) / raggio;
+                    if (a->cost < 0)
+                        a->cost = 0;
+                    if (a->cost > 100)
+                        a->cost = 100;
+                    it = it->next;
+                }
+            }
+
             if (distance + 1 < raggio)
             {
                 // aggiungi i figli alla coda
@@ -342,25 +427,205 @@ STATUS change_cost(int x, int y, int v, int raggio)
             }
         }
     }
-
+    queue_destroy(&q);
     free(visited);
 
     return 0;
 }
-
+/**
+ * @brief creates (or deletes if it already exist) an air route starting from (x1, y1) hexagon and ending in (x2, h2) hexagon
+ *
+ * @param x1 ascissa dell'esagono di partenza
+ * @param y1 ordinata dell'esagono di partenza
+ * @param x2 ascissa dell'esagono di arrivo
+ * @param y2 ordinata dell'esagono di arrivo
+ * @return STATUS
+ */
 STATUS toggle_air_route(int x1, int y1, int x2, int y2)
 {
+    // check if map exists
+    if (!map)
+        return (STATUS)1;
     // check if both exagons exist
-    if(!inBounds(x1,y1)) return (STATUS)1;
-    if(!inBounds(x2,y2)) return (STATUS)2;
+    if (!inBounds(x1, y1))
+        return (STATUS)2;
+    if (!inBounds(x2, y2))
+        return (STATUS)3;
 
-    int index = toIndex(x1,y1);
-    int target_index = toIndex(x2,y2);
+    int index = toIndex(x1, y1);
+    int target_index = toIndex(x2, y2);
+
+    // loop through starting hexagon air_routes_list
+    List_node *iterator = map[index].air_routes.head;
+    List_node *air_route_present = NULL;
+    int average = map[index].cost;
+    while (iterator)
+    {
+        Air_route air_route = *(Air_route *)iterator->data;
+        average += air_route.cost;
+        if (air_route.hexagon_index == target_index)
+        {
+            air_route_present = iterator;
+            break;
+        }
+        iterator = iterator->next;
+    }
+
+    if (air_route_present)
+    {
+        // remove the air_route
+        list_pop(&map[index].air_routes, air_route_present);
+    }
+    else
+    {
+        // add a new route
+        if (map[index].air_routes.size >= AIR_ROUTE_LIMIT)
+        {
+            // can't add a new route
+            return (STATUS)4;
+        }
+        Air_route new_route;
+        new_route.hexagon_index = target_index;
+        new_route.cost = average / (1 + map[index].air_routes.size);
+        if (new_route.cost < 0)
+            new_route.cost = 0;
+        if (new_route.cost > 100)
+            new_route.cost = 100;
+        list_push(&map[index].air_routes, (void *)&new_route, sizeof(Air_route));
+    }
 
     return (STATUS)0; // OK
 }
 
-int travel_cost(int xp, int yp, int xd, int yd);
+typedef struct Hexagon_coords
+{
+    int x;
+    int y;
+} Hexagon_coords;
+
+/**
+ * @brief travel cost calcola il percorso minimo
+ *
+ * @param xp ascissa dell'esagono di partenza
+ * @param yp ordinata dell'esagono di partenza
+ * @param xd ascissa dell'esagono di arrivo
+ * @param yd ordinata dell'esagono di arrivo
+ * @return costo del percorso minimo, -1 se irragiungibile
+ */
+int travel_cost(int xp, int yp, int xd, int yd)
+{
+    if (!map)
+        return -1;
+    if (!inBounds(xp, yp) || !inBounds(xd, yd))
+        return -1;
+
+    int departing = toIndex(xp, yp);
+    int arrival = toIndex(xd, yd);
+    if (departing == arrival)
+        return 0;
+    if (map[departing].cost == 0)
+        return -1;
+
+    Queue q;
+    q.head = NULL;
+    q.back = NULL;
+    q.size = 0;
+
+    int *distance = (int *)calloc(MAPSIZE, sizeof(int));
+    // set max distance
+    for (int i = 0; i < MAPSIZE; i++)
+    {
+        distance[i] = 0x7FFFFFFF;
+    }
+    distance[departing] = 0;
+
+    // adiacenze
+
+    for (int i = 0; i < 6; i++)
+    {
+        int adx = xp + adiacenze[yp % 2][i][0];
+        int ady = yp + adiacenze[yp % 2][i][1];
+        int index = toIndex(adx, ady);
+        if (inBounds(adx, ady) && distance[index] > map[departing].cost + distance[departing])
+        {
+            distance[index] = map[departing].cost;
+            Hexagon_coords hc;
+            hc.x = adx;
+            hc.y = ady;
+            queue_push(&q, &hc, sizeof(hc));
+        }
+    }
+
+    // air routes
+    if (map[departing].air_routes.size)
+    {
+        List_node *it = map[departing].air_routes.head;
+        while (it)
+        {
+            Air_route *air_route = (Air_route *)it->data;
+            Hexagon_coords hc;
+            toCoord(air_route->hexagon_index, &hc.x, &hc.y);
+            if (distance[air_route->hexagon_index] > air_route->cost + distance[departing])
+            {
+                distance[air_route->hexagon_index] = air_route->cost + distance[departing];
+                queue_push(&q, &hc, sizeof(Hexagon_coords));
+            }
+            it = it->next;
+        }
+    }
+    Hexagon_coords current_hexagon_coordinates;
+    int current_hexagon_index = 0;
+    while (q.size)
+    {
+        current_hexagon_coordinates = *(Hexagon_coords *)queue_front(&q);
+        current_hexagon_index = toIndex(current_hexagon_coordinates.x, current_hexagon_coordinates.y);
+        queue_pop(&q);
+        if (map[current_hexagon_index].cost != 0)
+        {
+            // adiacent
+            for (int i = 0; i < 6; i++)
+            {
+                int adx = current_hexagon_coordinates.x + adiacenze[current_hexagon_coordinates.y % 2][i][0];
+                int ady = current_hexagon_coordinates.y + adiacenze[current_hexagon_coordinates.y % 2][i][1];
+                int index = toIndex(adx, ady);
+                if (inBounds(adx, ady) && distance[index] > map[current_hexagon_index].cost + distance[current_hexagon_index])
+                {
+                    distance[index] = map[current_hexagon_index].cost + distance[current_hexagon_index];
+                    Hexagon_coords hc;
+                    hc.x = adx;
+                    hc.y = ady;
+                    queue_push(&q, &hc, sizeof(hc));
+                }
+            }
+
+            // air routes
+            if (map[current_hexagon_index].air_routes.size)
+            {
+                List_node *it = map[current_hexagon_index].air_routes.head;
+                while (it)
+                {
+                    Air_route *air_route = (Air_route *)it->data;
+                    Hexagon_coords hc;
+                    toCoord(air_route->hexagon_index, &hc.x, &hc.y);
+                    if (distance[air_route->hexagon_index] > air_route->cost + distance[current_hexagon_index])
+                    {
+                        distance[air_route->hexagon_index] = air_route->cost + distance[current_hexagon_index];
+                        queue_push(&q, &hc, sizeof(hc));
+                    }
+                    it = it->next;
+                }
+            }
+        }
+    }
+
+    int result = distance[arrival];
+    free(distance);
+    distance = NULL;
+    queue_destroy(&q);
+    if (result == 0x7FFFFFFF)
+        return -1;
+    return result;
+}
 
 int main(int argc, char **argv)
 {
@@ -368,13 +633,14 @@ int main(int argc, char **argv)
     FILE *istream = stdin;
     FILE *ostream = stdout;
     // define I/O streams as file
-    istream = fopen("input.txt", "r");
+    istream = fopen("./test/large.txt", "r");
     ostream = fopen("output.txt", "w");
 
     char buffer[BUFFER_SIZE];
     char *input = NULL;
     char *cmd = NULL;
     char *parameters = NULL;
+    int p1, p2, p3, p4;
     // input loop
     do
     {
@@ -386,8 +652,6 @@ int main(int argc, char **argv)
         parameters = strtok(NULL, "\0");
         if (cmd == NULL)
             break;
-        // fprintf(ostream,"%s\n",cmd);
-        // DEBUGPRINT(strlen(cmd))
         if (cmd)
             DEBUGPRINT(cmd)
         if (parameters)
@@ -396,9 +660,8 @@ int main(int argc, char **argv)
         if (!strncmp(cmd, "init", BUFFER_SIZE))
         {
             // init <colonne> <righe>
-            int x, y;
-            sscanf(parameters, "%d %d", &x, &y);
-            if (!init(x, y))
+            sscanf(parameters, "%d %d", &p1, &p2);
+            if (!init(p1, p2))
             {
                 fprintf(ostream, OK);
             }
@@ -411,9 +674,8 @@ int main(int argc, char **argv)
         if (!strncmp(cmd, "change_cost", BUFFER_SIZE))
         {
             // change_cost <x> <y> <v> <raggio>
-            int x, y, v, raggio;
-            sscanf(parameters, "%d %d %d %d", &x, &y, &v, &raggio);
-            if (!change_cost(x, y, v, raggio))
+            sscanf(parameters, "%d %d %d %d", &p1, &p2, &p3, &p4);
+            if (!change_cost(p1, p2, p3, p4))
                 fprintf(ostream, OK);
             else
                 fprintf(ostream, KO);
@@ -422,11 +684,18 @@ int main(int argc, char **argv)
         if (!strncmp(cmd, "toggle_air_route", BUFFER_SIZE))
         {
             // toggle_air_route <x1> <y1> <x2> <y2>
+            sscanf(parameters, "%d %d %d %d", &p1, &p2, &p3, &p4);
+            if (!toggle_air_route(p1, p2, p3, p4))
+                fprintf(ostream, OK);
+            else
+                fprintf(ostream, KO);
         }
 
         if (!strncmp(cmd, "travel_cost", BUFFER_SIZE))
         {
             // travel_cost <xp> <yp> <xd> <yd>
+            sscanf(parameters, "%d %d %d %d", &p1, &p2, &p3, &p4);
+            fprintf(ostream, "%d\n", travel_cost(p1, p2, p3, p4));
         }
 
     } while (1);
@@ -438,7 +707,14 @@ int main(int argc, char **argv)
 
     // free memory
     if (map)
+    {
+        // destroy air_route_list
+        for (int i = 0; i < MAPSIZE; i++)
+        {
+            list_destroy(&map[i].air_routes);
+        }
         free(map);
+    }
     DEBUGPRINT("Done");
     return 0;
 }

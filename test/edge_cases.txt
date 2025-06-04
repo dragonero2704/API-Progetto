@@ -12,3 +12,4 @@ travel_cost 0 0 9 0
 toggle_air_route 9 4 0 4
 toggle_air_route 0 4 9 0
 travel_cost 0 0 9 0
+
