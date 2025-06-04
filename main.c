@@ -40,13 +40,13 @@ typedef char STATUS;
 typedef struct Queue_node
 {
     void *data;
+    int comparator;
     struct Queue_node *next;
 } Queue_node;
 
 typedef struct Queue
 {
     struct Queue_node *head;
-    struct Queue_node *back;
     size_t size;
 } Queue;
 
@@ -56,27 +56,48 @@ typedef struct Change_cost_data
     int distance;
 } Change_cost_data;
 
-void queue_push(Queue *queue, const void *data, size_t data_size)
+void queue_push(Queue *queue, int comparator, const void *data, size_t data_size)
 {
     if (queue->head == NULL)
     {
         queue->head = (Queue_node *)malloc(sizeof(Queue_node));
         queue->head->next = NULL;
+        queue->head->comparator = comparator;
+
         queue->head->data = malloc(data_size);
         memcpy(queue->head->data, data, data_size);
-        queue->back = queue->head;
         queue->size = 1;
     }
     else
     {
-        queue->back->next = (Queue_node *)malloc(sizeof(Queue_node));
-        queue->back = queue->back->next;
-        queue->back->data = malloc(data_size);
-        queue->back->next = NULL;
-        memcpy(queue->back->data, data, data_size);
-        if (queue->size == 1)
-            queue->head->next = queue->back;
-        queue->size += 1;
+        queue->size++;
+        // iterate until head->next->comparator > comparator
+        if (comparator < queue->head->comparator)
+        {
+            // replace the head of the queue
+            Queue_node *oldHead = queue->head;
+            queue->head = (Queue_node *)malloc(sizeof(Queue_node));
+            queue->head->next = oldHead;
+            queue->head->comparator = comparator;
+            queue->head->data = malloc(data_size);
+            memcpy(queue->head->data, data, data_size);
+        }
+        else
+        {
+            Queue_node *prev = queue->head;
+            Queue_node *next = queue->head->next;
+            while (next && next->comparator < comparator)
+            {
+                prev = next;
+                next = next->next;
+            }
+            // insert in prev->next
+            prev->next = (Queue_node *)malloc(sizeof(Queue_node));
+            prev->next->comparator = comparator;
+            prev->next->next = next;
+            prev->next->data = malloc(data_size);
+            memcpy(prev->next->data, data, data_size);
+        }
     }
 }
 
@@ -86,8 +107,6 @@ void queue_pop(Queue *queue)
         return;
     Queue_node *toRemove = queue->head;
     queue->head = queue->head->next;
-    if (!queue->head)
-        queue->back = NULL;
 
     if (toRemove->data)
         free(toRemove->data);
@@ -118,122 +137,16 @@ typedef struct Air_route
 {
     int cost;
     int hexagon_index;
+    char active;
 } Air_route;
-
-// List node
-typedef struct List_node
-{
-    void *data;
-    struct List_node *previous;
-    struct List_node *next;
-} List_node;
-
-typedef struct List
-{
-    struct List_node *head;
-    struct List_node *back;
-    size_t size;
-} List, *PList;
-
-void list_push(List *list, void *data, size_t data_size)
-{
-    if (list->head == NULL)
-    {
-        // empty list
-        list->head = (List_node *)malloc(sizeof(List_node));
-        list->head->next = NULL;
-        list->head->previous = NULL;
-        list->back = list->head;
-        // data allocation
-        list->head->data = malloc(data_size);
-        memcpy(list->head->data, data, data_size);
-        list->size = 1;
-    }
-    else
-    {
-        list->back->next = (List_node *)malloc(sizeof(List_node));
-        list->back->next->previous = list->back;
-        list->back = list->back->next;
-        list->back->next = NULL;
-        list->back->data = malloc(data_size);
-        memcpy(list->back->data, data, data_size);
-        list->size++;
-    }
-}
-
-void list_pop(List *list, List_node *toRemove)
-{
-    if (!list || !toRemove || list->size == 0)
-        return;
-
-    if (list->size == 1 && list->head == toRemove)
-    {
-        free(toRemove->data);
-        free(toRemove);
-        list->head = NULL;
-        list->back = NULL;
-        list->size = 0;
-        return;
-    }
-
-    if (toRemove == list->head)
-    {
-        list->head = list->head->next;
-        if (list->head)
-            list->head->previous = NULL;
-        else
-            list->back = NULL;
-        free(toRemove->data);
-        free(toRemove);
-        list->size--;
-        return;
-    }
-
-    if (toRemove == list->back)
-    {
-        list->back = list->back->previous;
-        if (list->back)
-            list->back->next = NULL;
-        else
-            list->head = NULL;
-        free(toRemove->data);
-        free(toRemove);
-        list->size--;
-        return;
-    }
-
-    toRemove->previous->next = toRemove->next;
-    toRemove->next->previous = toRemove->previous;
-
-    free(toRemove->data);
-    free(toRemove);
-    list->size--;
-    return;
-}
-
-void list_destroy(List *list)
-{
-    while (list->head)
-        list_pop(list, list->head);
-}
-
-size_t list_size(List *list)
-{
-    return list->size;
-}
-// Stack
 
 // Hexagon type definition
 typedef struct
 {
     // hexagon cost
     int cost;
-    // hexagon coordinates
-    int x; // colonna
-    int y; // riga
-    // id = x + y*N_COLONNE
-    // air routes
-    List air_routes;
+    Air_route air_routes[5];
+    int air_routes_active;
 } Hexagon;
 
 // global vars
@@ -295,11 +208,6 @@ STATUS init(int x, int y)
     // rilascio della memoria
     if (map)
     {
-        // destroy air_route_list
-        for (int i = 0; i < MAPSIZE; i++)
-        {
-            list_destroy(&map[i].air_routes);
-        }
         free(map);
     }
     // init variabili grandezza
@@ -307,22 +215,11 @@ STATUS init(int x, int y)
     MAPX = x;
     MAPY = y;
     map = (Hexagon *)malloc(MAPSIZE * sizeof(Hexagon));
-    // invalidate cache
-    // if (cache)
-    //     free(cache);
-    // cache = (int *)malloc(2 * MAPSIZE * sizeof(int));
-    // for (int i = 0; i < 2 * MAPSIZE; i++)
-    //     cache[i] = CACHE_UNSET;
-
     // init cycle
     for (int i = 0; i < MAPSIZE; i++)
     {
         map[i].cost = 1;               // costo unitario di default
-        map[i].x = i % MAPX;           // l'ascissa è data dalla colonna della mappa
-        map[i].y = i / MAPX;           // l'ordinata è data dalla riga della mappa
-        map[i].air_routes.head = NULL; // puntatore a null [ALLOCARE MEMORIA]
-        map[i].air_routes.back = NULL; // puntatore a null [ALLOCARE MEMORIA]
-        map[i].air_routes.size = 0;    // size della lista
+        map[i].air_routes_active = 0;  // size della lista
     }
     return (STATUS)0; // OK
 }
@@ -359,7 +256,6 @@ STATUS change_cost(int x, int y, int v, int raggio)
 
     Queue q;
     q.head = NULL;
-    q.back = NULL;
     q.size = 0;
     // breeadth first visit
     for (int i = 0; i < 6; i++)
@@ -371,7 +267,7 @@ STATUS change_cost(int x, int y, int v, int raggio)
             Change_cost_data d;
             d.distance = 1;
             d.hexagon_index = toIndex(adx, ady);
-            queue_push(&q, &d, sizeof(d));
+            queue_push(&q, d.distance, &d, sizeof(d));
         }
     }
 
@@ -411,8 +307,8 @@ STATUS change_cost(int x, int y, int v, int raggio)
                 // aggiungi i figli alla coda
                 for (int i = 0; i < 6; i++)
                 {
-                    int curx = map[index].x;
-                    int cury = map[index].y;
+                    int curx, cury;
+                    toCoord(index, &curx, &cury);
                     int adx = curx + adiacenze[cury % 2][i][0];
                     int ady = cury + adiacenze[cury % 2][i][1];
                     if (inBounds(adx, ady))
@@ -421,7 +317,7 @@ STATUS change_cost(int x, int y, int v, int raggio)
                         d.distance = distance + 1;
                         d.hexagon_index = toIndex(adx, ady);
                         if (visited[d.hexagon_index] == 0 || visited[d.hexagon_index] > d.distance)
-                            queue_push(&q, &d, sizeof(d));
+                            queue_push(&q, d.distance, &d, sizeof(d));
                     }
                 }
             }
@@ -528,7 +424,6 @@ int travel_cost(int xp, int yp, int xd, int yd)
 
     Queue q;
     q.head = NULL;
-    q.back = NULL;
     q.size = 0;
 
     int *distance = (int *)calloc(MAPSIZE, sizeof(int));
@@ -552,7 +447,7 @@ int travel_cost(int xp, int yp, int xd, int yd)
             Hexagon_coords hc;
             hc.x = adx;
             hc.y = ady;
-            queue_push(&q, &hc, sizeof(hc));
+            queue_push(&q, distance[index], &hc, sizeof(hc));
         }
     }
 
@@ -568,7 +463,7 @@ int travel_cost(int xp, int yp, int xd, int yd)
             if (distance[air_route->hexagon_index] > air_route->cost + distance[departing])
             {
                 distance[air_route->hexagon_index] = air_route->cost + distance[departing];
-                queue_push(&q, &hc, sizeof(Hexagon_coords));
+                queue_push(&q, distance[air_route->hexagon_index], &hc, sizeof(Hexagon_coords));
             }
             it = it->next;
         }
@@ -591,10 +486,12 @@ int travel_cost(int xp, int yp, int xd, int yd)
                 if (inBounds(adx, ady) && distance[index] > map[current_hexagon_index].cost + distance[current_hexagon_index])
                 {
                     distance[index] = map[current_hexagon_index].cost + distance[current_hexagon_index];
+                    if (index == arrival)
+                        goto CLEANUP;
                     Hexagon_coords hc;
                     hc.x = adx;
                     hc.y = ady;
-                    queue_push(&q, &hc, sizeof(hc));
+                    queue_push(&q, distance[index], &hc, sizeof(hc));
                 }
             }
 
@@ -610,7 +507,9 @@ int travel_cost(int xp, int yp, int xd, int yd)
                     if (distance[air_route->hexagon_index] > air_route->cost + distance[current_hexagon_index])
                     {
                         distance[air_route->hexagon_index] = air_route->cost + distance[current_hexagon_index];
-                        queue_push(&q, &hc, sizeof(hc));
+                        if (air_route->hexagon_index == arrival)
+                            goto CLEANUP;
+                        queue_push(&q, distance[air_route->hexagon_index], (void*)&hc, sizeof(hc));
                     }
                     it = it->next;
                 }
@@ -618,6 +517,7 @@ int travel_cost(int xp, int yp, int xd, int yd)
         }
     }
 
+CLEANUP:
     int result = distance[arrival];
     free(distance);
     distance = NULL;
@@ -708,11 +608,6 @@ int main(int argc, char **argv)
     // free memory
     if (map)
     {
-        // destroy air_route_list
-        for (int i = 0; i < MAPSIZE; i++)
-        {
-            list_destroy(&map[i].air_routes);
-        }
         free(map);
     }
     DEBUGPRINT("Done");
