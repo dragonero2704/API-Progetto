@@ -36,19 +36,19 @@
 // type definitions
 typedef char STATUS;
 
-// queue
+// Min heap queue
 typedef struct Queue_node
 {
-    void *data;
-    int comparator;
-    struct Queue_node *next;
+    int min_heap_parameter;
+    int hexagon_index;
 } Queue_node;
 
-typedef struct Queue
+typedef struct Heap_queue
 {
-    struct Queue_node *head;
+    Queue_node *queue;
     size_t size;
-} Queue;
+    size_t capacity;
+} Heap_queue;
 
 typedef struct Change_cost_data
 {
@@ -56,88 +56,11 @@ typedef struct Change_cost_data
     int distance;
 } Change_cost_data;
 
-void queue_push(Queue *queue, int comparator, const void *data, size_t data_size)
-{
-    if (queue->head == NULL)
-    {
-        queue->head = (Queue_node *)malloc(sizeof(Queue_node));
-        queue->head->next = NULL;
-        queue->head->comparator = comparator;
-
-        queue->head->data = malloc(data_size);
-        memcpy(queue->head->data, data, data_size);
-        queue->size = 1;
-    }
-    else
-    {
-        queue->size++;
-        // iterate until head->next->comparator > comparator
-        if (comparator < queue->head->comparator)
-        {
-            // replace the head of the queue
-            Queue_node *oldHead = queue->head;
-            queue->head = (Queue_node *)malloc(sizeof(Queue_node));
-            queue->head->next = oldHead;
-            queue->head->comparator = comparator;
-            queue->head->data = malloc(data_size);
-            memcpy(queue->head->data, data, data_size);
-        }
-        else
-        {
-            Queue_node *prev = queue->head;
-            Queue_node *next = queue->head->next;
-            while (next && next->comparator < comparator)
-            {
-                prev = next;
-                next = next->next;
-            }
-            // insert in prev->next
-            prev->next = (Queue_node *)malloc(sizeof(Queue_node));
-            prev->next->comparator = comparator;
-            prev->next->next = next;
-            prev->next->data = malloc(data_size);
-            memcpy(prev->next->data, data, data_size);
-        }
-    }
-}
-
-void queue_pop(Queue *queue)
-{
-    if (!queue || !queue->head)
-        return;
-    Queue_node *toRemove = queue->head;
-    queue->head = queue->head->next;
-
-    if (toRemove->data)
-        free(toRemove->data);
-    free(toRemove);
-    queue->size--;
-}
-
-void *queue_front(Queue *queue)
-{
-    return queue->head->data;
-}
-
-int queue_size(Queue *queue)
-{
-    return queue->size;
-}
-
-void queue_destroy(Queue *queue)
-{
-    while (queue->head)
-    {
-        queue_pop(queue);
-    }
-}
-
 // Air route definition
 typedef struct Air_route
 {
     int cost;
     int hexagon_index;
-    char active;
 } Air_route;
 
 // Hexagon type definition
@@ -157,9 +80,174 @@ int MAPY = 0;
 int adiacenze[2][6][2] = {
     {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {-1, 1}, {-1, -1}},
     {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, -1}, {1, 1}}};
-int *cache = NULL;
+// int *cache = NULL;
+Heap_queue travel_cost_queue;
+Heap_queue change_cost_queue;
 
 // Functions
+int toIndex(int x, int y);
+void print_map()
+{
+    printf("MAPY : %d\nMAPX : %d\nMAPSIZE : %d\n", MAPY, MAPX, MAPSIZE);
+    //char **matrix[MAPY][MAPX];
+    for (int i = 0; i < MAPY; i++)
+    {
+        for (int j = 0; j < MAPX; j++)
+        {
+            if (i % 2 == 0)
+            {
+                printf("%d ", map[toIndex(j, i)].cost);
+            }
+            else
+            {
+                if (j == 0)
+                    printf(" ");
+                printf("%d ", map[toIndex(j, i)].cost);
+            }
+        }
+        printf("\n");
+    }
+    printf("\nEND OF PRINT\n");
+}
+
+void air_route_swap(Air_route *a, Air_route *b)
+{
+    Air_route *tmp = a;
+    *a = *b;
+    *b = *tmp;
+}
+
+// heap utilities
+int heap_parent(int index)
+{
+    return (index - 1) / 2;
+}
+
+int heap_left(int index)
+{
+    return (index * 2) + 1;
+}
+
+int heap_right(int index)
+{
+    return (index * 2) + 2;
+}
+
+void heap_swap(Queue_node *a, Queue_node *b)
+{
+    Queue_node tmp;
+    tmp.hexagon_index = a->hexagon_index;
+    tmp.min_heap_parameter = a->min_heap_parameter;
+
+    a->hexagon_index = b->hexagon_index;
+    a->min_heap_parameter = b->min_heap_parameter;
+    b->hexagon_index = tmp.hexagon_index;
+    b->min_heap_parameter = tmp.min_heap_parameter;
+}
+
+/**
+ * @brief inizializza l'heap inizializzando size a 0, capacity e allocando l'array
+ *
+ * @param q
+ * @param queue_max_lenght
+ */
+void heap_init(Heap_queue *q, size_t queue_max_lenght)
+{
+    if (q->queue)
+        free(q->queue);
+    q->queue = (Queue_node *)calloc(queue_max_lenght, sizeof(Queue_node));
+    q->size = 0;
+    q->capacity = queue_max_lenght;
+}
+
+/**
+ * @brief setta size a 0
+ *
+ * @param q
+ */
+void heap_empty(Heap_queue *q)
+{
+    q->size = 0;
+}
+
+/**
+ * @brief propaga l'aggiornamento dalle foglie alla radice dell'heap per mantenere
+ * la proprietà del min-heap. Questa funzione viene chiamata quando viene aggiunto un nuovo elemento allo heap
+ * che trovandosi in fondo all'array deve magari essere scambiato con l'elemento padre per metterlo alla radice
+ *
+ * @param q
+ * @param index
+ */
+void heap_heapify_bottom_up(Heap_queue *q, int index)
+{
+    while (index > 0 && q->queue[heap_parent(index)].min_heap_parameter > q->queue[index].min_heap_parameter)
+    {
+        // scambia index e padre di index
+        heap_swap(&q->queue[heap_parent(index)], &q->queue[index]);
+        index = heap_parent(index);
+    }
+}
+
+/**
+ * @brief propaga l'aggiornamento dalla radice alle foglie dell'heap per mantenere
+ * la proprietà del min-heap.
+ * Questa funzione viene chiamata quando viene eliminato un elemento dallo heap
+ *
+ * @param q
+ * @param index
+ */
+void heap_heapify_top_bottom(Heap_queue *q, int index)
+{
+    int min_index = index;
+    int left = heap_left(index);
+    if (left < q->size && q->queue[left].min_heap_parameter < q->queue[min_index].min_heap_parameter)
+    {
+        min_index = left;
+    }
+
+    int right = heap_right(index);
+    if (right < q->size && q->queue[right].min_heap_parameter < q->queue[min_index].min_heap_parameter)
+    {
+        min_index = right;
+    }
+
+    if (min_index != index)
+    {
+        heap_swap(&q->queue[index], &q->queue[min_index]);
+        // propaga aggiornamento heap verso il basso (foglie)
+        heap_heapify_top_bottom(q, min_index);
+    }
+}
+
+void heap_push(Heap_queue *q, Queue_node node)
+{
+    q->queue[q->size].hexagon_index = node.hexagon_index;
+    q->queue[q->size].min_heap_parameter = node.min_heap_parameter;
+    q->size++;
+
+    heap_heapify_bottom_up(q, q->size - 1);
+}
+
+Queue_node heap_front(Heap_queue *q)
+{
+    return q->queue[0];
+}
+
+Queue_node heap_pop(Heap_queue *q)
+{
+    Queue_node result;
+    result.hexagon_index = q->queue[0].hexagon_index;
+    result.min_heap_parameter = q->queue[0].min_heap_parameter;
+    // not working
+    heap_swap(&q->queue[0], &q->queue[q->size - 1]);
+
+    q->size--;
+
+    heap_heapify_top_bottom(q, 0);
+
+    return result;
+}
+
 /**
  * @brief checks if the given x, y coordinates are inBounds
  *
@@ -218,12 +306,16 @@ STATUS init(int x, int y)
     // init cycle
     for (int i = 0; i < MAPSIZE; i++)
     {
-        map[i].cost = 1;               // costo unitario di default
-        map[i].air_routes_active = 0;  // size della lista
+        map[i].cost = 1;              // costo unitario di default
+        map[i].air_routes_active = 0; // size della lista
     }
+    // init data structures per travel_cost e change cost
+    heap_init(&change_cost_queue, MAPSIZE);
+    heap_init(&travel_cost_queue, MAPSIZE);
+
     return (STATUS)0; // OK
 }
-
+// TODO CORRECT: NOT PROPAGATING
 /**
  * @brief
  *
@@ -245,91 +337,97 @@ STATUS change_cost(int x, int y, int v, int raggio)
     if (raggio <= 0)
         return (STATUS)4;
     // change cost of the (x,y) hexagon
-    int index = toIndex(x, y);
-    map[index].cost = map[index].cost + v;
-    if (map[index].cost < 0)
-        map[index].cost = 0;
-    if (map[index].cost > 100)
-        map[index].cost = 100;
-    int *visited = (int *)calloc(MAPSIZE, sizeof(int));
-    visited[index] = 1;
+    int origin = toIndex(x, y);
+    map[origin].cost = map[origin].cost + v;
+    if (map[origin].cost < 0)
+        map[origin].cost = 0;
+    if (map[origin].cost > 100)
+        map[origin].cost = 100;
 
-    Queue q;
-    q.head = NULL;
-    q.size = 0;
-    // breeadth first visit
-    for (int i = 0; i < 6; i++)
+    // rotte aeree dell'origine
+    for (int i = 0; i < map[origin].air_routes_active; i++)
     {
-        int adx = x + adiacenze[y % 2][i][0];
-        int ady = y + adiacenze[y % 2][i][1];
-        if (inBounds(adx, ady))
-        {
-            Change_cost_data d;
-            d.distance = 1;
-            d.hexagon_index = toIndex(adx, ady);
-            queue_push(&q, d.distance, &d, sizeof(d));
-        }
+        int newcost = map[origin].air_routes[i].cost + v;
+        if (newcost < 0)
+            newcost = 0;
+        if (newcost > 100)
+            newcost = 100;
+        map[origin].air_routes[i].cost = newcost;
     }
 
-    while (queue_size(&q))
-    {
-        Change_cost_data *data = (Change_cost_data *)queue_front(&q);
-        int distance = data->distance;
-        index = data->hexagon_index;
-        queue_pop(&q);
-        // process
-        if (visited[index] == 0 || visited[index] > distance)
-        {
-            visited[index] = distance;
-            map[index].cost = map[index].cost + v * (raggio - distance) / raggio;
-            // limit the cost to the interval [1,100]
-            if (map[index].cost < 0)
-                map[index].cost = 0;
-            if (map[index].cost > 100)
-                map[index].cost = 100;
-            if (map[index].air_routes.size != 0)
-            {
-                List_node *it = map[index].air_routes.head;
-                while (it)
-                {
-                    Air_route *a = (Air_route *)(it->data);
-                    a->cost = a->cost + v * (raggio - distance) / raggio;
-                    if (a->cost < 0)
-                        a->cost = 0;
-                    if (a->cost > 100)
-                        a->cost = 100;
-                    it = it->next;
-                }
-            }
+    if (raggio == 1)
+        return (STATUS)0;
 
-            if (distance + 1 < raggio)
+    int *distance_array = (int *)malloc(MAPSIZE * sizeof(int));
+    for (int i = 0; i < MAPSIZE; i++)
+    {
+        distance_array[i] = 0x7FFFFFFF;
+    }
+    distance_array[origin] = 0;
+    // TODO BUGFIX
+
+    // svuota l'heap
+    heap_empty(&change_cost_queue);
+    Queue_node heap_data;
+    heap_data.hexagon_index = origin;
+    heap_data.min_heap_parameter = 0;
+    heap_push(&change_cost_queue, heap_data);
+
+    while (change_cost_queue.size)
+    {
+        Queue_node data = heap_pop(&change_cost_queue);
+        int index = data.hexagon_index;
+        int current_distance = data.min_heap_parameter;
+        // check se la distanza 
+        if (current_distance + 1 < raggio)
+        {
+            // aggiungi i figli alla coda
+            for (int i = 0; i < 6; i++)
             {
-                // aggiungi i figli alla coda
-                for (int i = 0; i < 6; i++)
+                int curx, cury;
+                toCoord(index, &curx, &cury);
+                int adx = curx + adiacenze[cury % 2][i][0];
+                int ady = cury + adiacenze[cury % 2][i][1];
+                int ad_index = toIndex(adx, ady);
+                if (ad_index == origin)
+                    continue;
+                if (inBounds(adx, ady) && distance_array[ad_index] > current_distance + 1)
                 {
-                    int curx, cury;
-                    toCoord(index, &curx, &cury);
-                    int adx = curx + adiacenze[cury % 2][i][0];
-                    int ady = cury + adiacenze[cury % 2][i][1];
-                    if (inBounds(adx, ady))
+                    distance_array[ad_index] = current_distance + 1;
+                    int newcost = map[ad_index].cost +
+                                  v * (raggio - current_distance - 1) / raggio;
+                    if (newcost < 0)
+                        newcost = 0;
+                    if (newcost > 100)
+                        newcost = 100;
+                    map[ad_index].cost = newcost;
+                    // processa rotte aeree dell'adiacenza
+                    for (int i = 0; i < map[ad_index].air_routes_active; i++)
                     {
-                        Change_cost_data d;
-                        d.distance = distance + 1;
-                        d.hexagon_index = toIndex(adx, ady);
-                        if (visited[d.hexagon_index] == 0 || visited[d.hexagon_index] > d.distance)
-                            queue_push(&q, d.distance, &d, sizeof(d));
+                        newcost = map[ad_index].air_routes[i].cost +
+                                  v * (raggio - current_distance - 1) / raggio;
+                        if (newcost < 0)
+                            newcost = 0;
+                        if (newcost > 100)
+                            newcost = 100;
+                        map[ad_index].air_routes[i].cost = newcost;
                     }
+                    Queue_node d;
+                    d.min_heap_parameter = current_distance + 1;
+                    d.hexagon_index = ad_index;
+                    heap_push(&change_cost_queue, d);
                 }
             }
         }
     }
-    queue_destroy(&q);
-    free(visited);
-
-    return 0;
+    heap_empty(&change_cost_queue);
+    free(distance_array);
+    //print_map();
+    return (STATUS)0;
 }
 /**
- * @brief creates (or deletes if it already exist) an air route starting from (x1, y1) hexagon and ending in (x2, h2) hexagon
+ * @brief crea (o cancella se esiste) una air route dall'esagono (x1, y1) allìesagono (x2, h2)
+ * Il costo della rotta è calcolato come la media di tutte le rotte esistenti + il costo dell'esagono di partenza
  *
  * @param x1 ascissa dell'esagono di partenza
  * @param y1 ordinata dell'esagono di partenza
@@ -350,55 +448,51 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
 
     int index = toIndex(x1, y1);
     int target_index = toIndex(x2, y2);
-
-    // loop through starting hexagon air_routes_list
-    List_node *iterator = map[index].air_routes.head;
-    List_node *air_route_present = NULL;
-    int average = map[index].cost;
-    while (iterator)
+    if (map[index].air_routes_active >= AIR_ROUTE_LIMIT)
+        return (STATUS)4;
+    int air_routes_active = map[index].air_routes_active;
+    if (air_routes_active)
     {
-        Air_route air_route = *(Air_route *)iterator->data;
-        average += air_route.cost;
-        if (air_route.hexagon_index == target_index)
+        int found = -1;
+        int average = map[index].cost;
+        // prima scorrere le air_route
+        for (int i = 0; i < air_routes_active; i++)
         {
-            air_route_present = iterator;
-            break;
+            average += map[index].air_routes[i].cost;
+            int hexagon_index = map[index].air_routes[i].hexagon_index;
+            if (hexagon_index == target_index)
+            {
+                found = i;
+                break;
+            }
         }
-        iterator = iterator->next;
-    }
-
-    if (air_route_present)
-    {
-        // remove the air_route
-        list_pop(&map[index].air_routes, air_route_present);
+        if (found == -1)
+        {
+            // aggiungo air_route
+            map[index].air_routes[air_routes_active].cost = average / (1 + air_routes_active);
+            map[index].air_routes[air_routes_active].hexagon_index = target_index;
+            map[index].air_routes_active++;
+        }
+        else
+        {
+            // elimina route
+            if (found != air_routes_active)
+                air_route_swap(&map[index].air_routes[found], &map[index].air_routes[air_routes_active - 1]);
+            map[index].air_routes_active--;
+        }
     }
     else
     {
-        // add a new route
-        if (map[index].air_routes.size >= AIR_ROUTE_LIMIT)
-        {
-            // can't add a new route
-            return (STATUS)4;
-        }
-        Air_route new_route;
-        new_route.hexagon_index = target_index;
-        new_route.cost = average / (1 + map[index].air_routes.size);
-        if (new_route.cost < 0)
-            new_route.cost = 0;
-        if (new_route.cost > 100)
-            new_route.cost = 100;
-        list_push(&map[index].air_routes, (void *)&new_route, sizeof(Air_route));
+        // aggiungi prima nuova air route
+        map[index].air_routes[air_routes_active].hexagon_index = target_index;
+        map[index].air_routes[air_routes_active].cost = map[index].cost;
+        map[index].air_routes_active = 1;
     }
 
     return (STATUS)0; // OK
 }
 
-typedef struct Hexagon_coords
-{
-    int x;
-    int y;
-} Hexagon_coords;
-
+// TODO BUGFIX
 /**
  * @brief travel cost calcola il percorso minimo
  *
@@ -410,6 +504,7 @@ typedef struct Hexagon_coords
  */
 int travel_cost(int xp, int yp, int xd, int yd)
 {
+    // edge cases
     if (!map)
         return -1;
     if (!inBounds(xp, yp) || !inBounds(xd, yd))
@@ -421,107 +516,84 @@ int travel_cost(int xp, int yp, int xd, int yd)
         return 0;
     if (map[departing].cost == 0)
         return -1;
+    // fine edge cases
 
-    Queue q;
-    q.head = NULL;
-    q.size = 0;
-
-    int *distance = (int *)calloc(MAPSIZE, sizeof(int));
+    // svuota coda
+    heap_empty(&travel_cost_queue);
+    int *distance = (int *)malloc(MAPSIZE * sizeof(int));
     // set max distance
     for (int i = 0; i < MAPSIZE; i++)
     {
         distance[i] = 0x7FFFFFFF;
     }
     distance[departing] = 0;
+    Queue_node heap_data;
+    heap_data.hexagon_index = departing;
+    heap_data.min_heap_parameter = 0;
+    heap_push(&travel_cost_queue, heap_data);
 
-    // adiacenze
-
-    for (int i = 0; i < 6; i++)
-    {
-        int adx = xp + adiacenze[yp % 2][i][0];
-        int ady = yp + adiacenze[yp % 2][i][1];
-        int index = toIndex(adx, ady);
-        if (inBounds(adx, ady) && distance[index] > map[departing].cost + distance[departing])
-        {
-            distance[index] = map[departing].cost;
-            Hexagon_coords hc;
-            hc.x = adx;
-            hc.y = ady;
-            queue_push(&q, distance[index], &hc, sizeof(hc));
-        }
-    }
-
-    // air routes
-    if (map[departing].air_routes.size)
-    {
-        List_node *it = map[departing].air_routes.head;
-        while (it)
-        {
-            Air_route *air_route = (Air_route *)it->data;
-            Hexagon_coords hc;
-            toCoord(air_route->hexagon_index, &hc.x, &hc.y);
-            if (distance[air_route->hexagon_index] > air_route->cost + distance[departing])
-            {
-                distance[air_route->hexagon_index] = air_route->cost + distance[departing];
-                queue_push(&q, distance[air_route->hexagon_index], &hc, sizeof(Hexagon_coords));
-            }
-            it = it->next;
-        }
-    }
-    Hexagon_coords current_hexagon_coordinates;
+    // l'errore è qui
     int current_hexagon_index = 0;
-    while (q.size)
+    while (travel_cost_queue.size)
     {
-        current_hexagon_coordinates = *(Hexagon_coords *)queue_front(&q);
-        current_hexagon_index = toIndex(current_hexagon_coordinates.x, current_hexagon_coordinates.y);
-        queue_pop(&q);
+        Queue_node current_hexagon = heap_pop(&travel_cost_queue);
+        current_hexagon_index = current_hexagon.hexagon_index;
+
+        int current_hexagon_x, current_hexagon_y;
+        toCoord(current_hexagon_index, &current_hexagon_x, &current_hexagon_y);
+
+        if (current_hexagon_index == arrival)
+            break;
+        // controllo se non è un nodo intransitabile
         if (map[current_hexagon_index].cost != 0)
         {
-            // adiacent
+            // adiacenze
             for (int i = 0; i < 6; i++)
             {
-                int adx = current_hexagon_coordinates.x + adiacenze[current_hexagon_coordinates.y % 2][i][0];
-                int ady = current_hexagon_coordinates.y + adiacenze[current_hexagon_coordinates.y % 2][i][1];
-                int index = toIndex(adx, ady);
-                if (inBounds(adx, ady) && distance[index] > map[current_hexagon_index].cost + distance[current_hexagon_index])
+                int adx = current_hexagon_x + adiacenze[current_hexagon_y % 2][i][0];
+                int ady = current_hexagon_y + adiacenze[current_hexagon_y % 2][i][1];
+                int ad_index = toIndex(adx, ady);
+                // la nuova distanza sarà il costo dell'esagono preso in analisi + la sua distanza dal punto di partenza
+                int newdistance = map[current_hexagon_index].cost + distance[current_hexagon_index];
+                if (inBounds(adx, ady) && distance[ad_index] > newdistance)
                 {
-                    distance[index] = map[current_hexagon_index].cost + distance[current_hexagon_index];
-                    if (index == arrival)
-                        goto CLEANUP;
-                    Hexagon_coords hc;
-                    hc.x = adx;
-                    hc.y = ady;
-                    queue_push(&q, distance[index], &hc, sizeof(hc));
+                    distance[ad_index] = newdistance;
+                    Queue_node qn;
+                    qn.min_heap_parameter = newdistance;
+                    qn.hexagon_index = ad_index;
+                    heap_push(&travel_cost_queue, qn);
                 }
             }
 
             // air routes
-            if (map[current_hexagon_index].air_routes.size)
+            if(map[current_hexagon_index].air_routes_active)
             {
-                List_node *it = map[current_hexagon_index].air_routes.head;
-                while (it)
+                // itera le rotte aeree
+                for(int i = 0; i < map[current_hexagon_index].air_routes_active; i++)
                 {
-                    Air_route *air_route = (Air_route *)it->data;
-                    Hexagon_coords hc;
-                    toCoord(air_route->hexagon_index, &hc.x, &hc.y);
-                    if (distance[air_route->hexagon_index] > air_route->cost + distance[current_hexagon_index])
+                    int air_route_index = map[current_hexagon_index].air_routes[i].hexagon_index;
+                    int air_route_cost = map[current_hexagon_index].air_routes[i].cost;
+                    // il costo sarà dato dal costo della rotta aerea + la distanza del nodo di partenza dalla sorgente
+                    int newdistance = air_route_cost + distance[current_hexagon_index];
+                    if(newdistance < distance[air_route_index])
                     {
-                        distance[air_route->hexagon_index] = air_route->cost + distance[current_hexagon_index];
-                        if (air_route->hexagon_index == arrival)
-                            goto CLEANUP;
-                        queue_push(&q, distance[air_route->hexagon_index], (void*)&hc, sizeof(hc));
+                        // la distanza nuova proposta è minore di quella attuale
+                        distance[air_route_index] = newdistance;
+                        Queue_node qn;
+                        qn.min_heap_parameter = newdistance;
+                        qn.hexagon_index = air_route_index;
+                        heap_push(&travel_cost_queue, qn);
                     }
-                    it = it->next;
                 }
             }
+            
         }
     }
 
-CLEANUP:
     int result = distance[arrival];
     free(distance);
     distance = NULL;
-    queue_destroy(&q);
+    heap_empty(&travel_cost_queue);
     if (result == 0x7FFFFFFF)
         return -1;
     return result;
@@ -533,8 +605,8 @@ int main(int argc, char **argv)
     FILE *istream = stdin;
     FILE *ostream = stdout;
     // define I/O streams as file
-    istream = fopen("./test/large.txt", "r");
-    ostream = fopen("output.txt", "w");
+    //istream = fopen("./test/large.txt", "r");
+    //ostream = fopen("output.txt", "w");
 
     char buffer[BUFFER_SIZE];
     char *input = NULL;
@@ -544,18 +616,18 @@ int main(int argc, char **argv)
     // input loop
     do
     {
-        input = fgets(buffer, BUFFER_SIZE, istream);
+        do
+        {
+            input = (char *)fgets(buffer, BUFFER_SIZE, istream);
+        } while (!input);
+
         // delete trailing "\n"
-        input[strlen(input) - 1] = '\0';
+        buffer[strlen(input) - 1] = '\0';
         // split string in command and parameters
-        cmd = strtok(input, " ");
+        cmd = strtok(buffer, " ");
         parameters = strtok(NULL, "\0");
         if (cmd == NULL)
             break;
-        if (cmd)
-            DEBUGPRINT(cmd)
-        if (parameters)
-            DEBUGPRINT(parameters)
 
         if (!strncmp(cmd, "init", BUFFER_SIZE))
         {
@@ -610,6 +682,6 @@ int main(int argc, char **argv)
     {
         free(map);
     }
-    DEBUGPRINT("Done");
+
     return 0;
 }

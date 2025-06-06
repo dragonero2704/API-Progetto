@@ -13,3 +13,4 @@ travel_cost 0 0 20 0
 change_cost 200 20 -10 5
 toggle_air_route 200 20 -10 5
 travel_cost 200 20 11 20
+
