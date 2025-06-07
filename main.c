@@ -29,7 +29,7 @@
 // defines
 #define BUFFER_SIZE 50
 #define AIR_ROUTE_LIMIT 5
-#define CACHE_UNSET -42
+#define CACHE_NOT_FOUND -42
 #define OK "OK\n"
 #define KO "KO\n"
 
@@ -37,24 +37,37 @@
 typedef char STATUS;
 
 // Min heap queue
-typedef struct Queue_node
+typedef struct Heap_node
 {
     int min_heap_parameter;
     int hexagon_index;
-} Queue_node;
+} Heap_node;
 
-typedef struct Heap_queue
+typedef struct Min_heap
 {
-    Queue_node *queue;
+    Heap_node *min_heap;
     size_t size;
     size_t capacity;
-} Heap_queue;
+} Min_heap;
 
-typedef struct Change_cost_data
+// hashmap
+typedef struct Hashmap_node
 {
-    int hexagon_index;
-    int distance;
-} Change_cost_data;
+    /*
+     * la chiave sarà la concatenazione degli indici degli esagono strutturati in questo modo:
+     * partenza.arrivo = partenza * 10 ^ n + arrivo
+     */
+    unsigned int key;
+    int value;
+    struct Hashmap_node *next;
+} Hashmap_node;
+
+typedef struct Hashmap
+{
+    Hashmap_node **map;
+    size_t size;
+    size_t capacity;
+} Hashmap;
 
 // Air route definition
 typedef struct Air_route
@@ -72,7 +85,7 @@ typedef struct
     int air_routes_active;
 } Hexagon;
 
-// global vars
+/* ============== GLOBALI ============== */
 Hexagon *map = NULL;
 int MAPSIZE = 0;
 int MAPX = 0;
@@ -81,15 +94,16 @@ int adiacenze[2][6][2] = {
     {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {-1, 1}, {-1, -1}},
     {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, -1}, {1, 1}}};
 // int *cache = NULL;
-Heap_queue travel_cost_queue;
-Heap_queue change_cost_queue;
+Min_heap min_heap_queue;
+Hashmap cache;
+/* ============ FINE GLOBALI ============ */
 
 // Functions
 int toIndex(int x, int y);
 void print_map()
 {
     printf("MAPY : %d\nMAPX : %d\nMAPSIZE : %d\n", MAPY, MAPX, MAPSIZE);
-    //char **matrix[MAPY][MAPX];
+    // char **matrix[MAPY][MAPX];
     for (int i = 0; i < MAPY; i++)
     {
         for (int j = 0; j < MAPX; j++)
@@ -117,6 +131,145 @@ void air_route_swap(Air_route *a, Air_route *b)
     *b = *tmp;
 }
 
+unsigned int toHashmapKey(unsigned int a, unsigned int b)
+{
+    // non commutativa infatti a*b + a != b*a + b
+    return a * b + a;
+}
+
+// hashmap functions
+void hashmap_empty(Hashmap *h)
+{
+    if(!h->map) return;
+    if (h->size == 0)
+        return;
+    for (int i = 0; i < h->capacity; i++)
+    {
+        // se in quell'indice è stato allocato un Heap_node
+        if (h->map[i])
+        {
+            Hashmap_node *curr = h->map[i];
+            Hashmap_node *next = NULL;
+            while (curr)
+            {
+                next = curr->next;
+                free(curr);
+                curr = next;
+            }
+        }
+        h->map[i] = NULL;
+    }
+    h->size = 0;
+}
+/**
+ * @brief
+ *
+ * @param h puntatore alla hashmap da inizializzare
+ */
+void hashmap_init(Hashmap *h)
+{
+    /**
+     * Un numero primo per diminuire conflitti
+     * Lista di numeri primi : http://compoasso.free.fr/primelistweb/page/prime/liste_online_en.php
+     */
+    if (h->map)
+    {
+        hashmap_empty(h);
+        free(h->map);
+    }
+    h->capacity = 577;
+    h->size = 0;
+    h->map = (Hashmap_node **)calloc(h->capacity, sizeof(Hashmap_node *));
+}
+
+// hashing con metodo della divisione
+unsigned int hashing_function(Hashmap *h, unsigned int toHash)
+{
+    unsigned int hashed = toHash % h->capacity;
+    return hashed;
+}
+
+void hashmap_insert(Hashmap *h, unsigned int key, int value)
+{
+    DEBUGPRINT("INSERTING ELEMENT IN CACHE")
+    unsigned int digest = hashing_function(h, key);
+    Hashmap_node* new_node = (Hashmap_node *)malloc(sizeof(Hashmap_node));
+    new_node->key = key;
+    new_node->value = value;
+    new_node->next = NULL;
+    Hashmap_node *it = h->map[digest];
+    if (!it)
+    {
+        h->map[digest] = new_node;
+    }
+    else
+    {
+        while (it->next)
+        {
+            it = it->next;
+        }
+        it->next = new_node;
+    }
+    h->size++;
+}
+
+void hashmap_delete(Hashmap *h, unsigned int key)
+{
+    unsigned int digest = hashing_function(h, key);
+
+    Hashmap_node *prev = NULL;
+    Hashmap_node *curr = h->map[digest];
+
+    while (curr)
+    {
+        if (curr->key == key)
+        {
+            // cancellare chiave: 2 casi
+
+            // curr è la testa
+            if (!prev)
+            {
+                h->map[digest] = curr->next;
+            }
+            else
+            {
+                // curr è un nodo nel mezzo
+                prev->next = curr->next;
+            }
+            free(curr);
+            break;
+        }
+        // scorri lista
+        prev = curr;
+        curr = curr->next;
+    }
+}
+/**
+ * @brief cerca una key all'interno della Hashmap h
+ *
+ * @param h puntatore alla hashmap
+ * @param key chiave da cercare
+ * @return value se la key è presente nella hashmap, altrimenti -42
+ * (userò questa hashmap per inserire distanze quindi i valori possibili sono -1 oppure distanze >= 0)
+ */
+int hashmap_search(Hashmap *h, unsigned int key)
+{
+    unsigned int digest = hashing_function(h, key);
+    Hashmap_node *list = h->map[digest];
+    while (list && list->key != key)
+    {
+        list = list->next;
+    }
+    if (list == NULL)
+    {
+        DEBUGPRINT("CACHE MISS");
+        // chiave non trovata
+        return CACHE_NOT_FOUND;
+    }
+    DEBUGPRINT("CACHE HIT");
+    return list->value;
+}
+
 // heap utilities
 int heap_parent(int index)
 {
@@ -133,9 +286,10 @@ int heap_right(int index)
     return (index * 2) + 2;
 }
 
-void heap_swap(Queue_node *a, Queue_node *b)
+// heap functions
+void heap_swap(Heap_node *a, Heap_node *b)
 {
-    Queue_node tmp;
+    Heap_node tmp;
     tmp.hexagon_index = a->hexagon_index;
     tmp.min_heap_parameter = a->min_heap_parameter;
 
@@ -151,11 +305,13 @@ void heap_swap(Queue_node *a, Queue_node *b)
  * @param q
  * @param queue_max_lenght
  */
-void heap_init(Heap_queue *q, size_t queue_max_lenght)
+void heap_init(Min_heap *q, size_t queue_max_lenght)
 {
-    if (q->queue)
-        free(q->queue);
-    q->queue = (Queue_node *)calloc(queue_max_lenght, sizeof(Queue_node));
+    if (q->min_heap)
+        free(q->min_heap);
+
+    q->min_heap = (Heap_node *)calloc(queue_max_lenght, sizeof(Heap_node));
+
     q->size = 0;
     q->capacity = queue_max_lenght;
 }
@@ -165,7 +321,7 @@ void heap_init(Heap_queue *q, size_t queue_max_lenght)
  *
  * @param q
  */
-void heap_empty(Heap_queue *q)
+void heap_empty(Min_heap *q)
 {
     q->size = 0;
 }
@@ -178,13 +334,17 @@ void heap_empty(Heap_queue *q)
  * @param q
  * @param index
  */
-void heap_heapify_bottom_up(Heap_queue *q, int index)
+void heap_heapify_bottom_up(Min_heap *q, int index)
 {
-    while (index > 0 && q->queue[heap_parent(index)].min_heap_parameter > q->queue[index].min_heap_parameter)
+    while (index > 0 && q->min_heap[heap_parent(index)].min_heap_parameter > q->min_heap[index].min_heap_parameter)
     {
         // scambia index e padre di index
-        heap_swap(&q->queue[heap_parent(index)], &q->queue[index]);
-        index = heap_parent(index);
+        int parent_index = heap_parent(index);
+
+        // scambio dei valori
+        heap_swap(&q->min_heap[parent_index], &q->min_heap[index]);
+
+        index = parent_index;
     }
 }
 
@@ -196,50 +356,49 @@ void heap_heapify_bottom_up(Heap_queue *q, int index)
  * @param q
  * @param index
  */
-void heap_heapify_top_bottom(Heap_queue *q, int index)
+void heap_heapify_top_bottom(Min_heap *q, int index)
 {
     int min_index = index;
     int left = heap_left(index);
-    if (left < q->size && q->queue[left].min_heap_parameter < q->queue[min_index].min_heap_parameter)
+    if (left < q->size && q->min_heap[left].min_heap_parameter < q->min_heap[min_index].min_heap_parameter)
     {
         min_index = left;
     }
 
     int right = heap_right(index);
-    if (right < q->size && q->queue[right].min_heap_parameter < q->queue[min_index].min_heap_parameter)
+    if (right < q->size && q->min_heap[right].min_heap_parameter < q->min_heap[min_index].min_heap_parameter)
     {
         min_index = right;
     }
 
     if (min_index != index)
     {
-        heap_swap(&q->queue[index], &q->queue[min_index]);
+        heap_swap(&q->min_heap[index], &q->min_heap[min_index]);
         // propaga aggiornamento heap verso il basso (foglie)
         heap_heapify_top_bottom(q, min_index);
     }
 }
 
-void heap_push(Heap_queue *q, Queue_node node)
+void heap_push(Min_heap *q, Heap_node node)
 {
-    q->queue[q->size].hexagon_index = node.hexagon_index;
-    q->queue[q->size].min_heap_parameter = node.min_heap_parameter;
-    q->size++;
+    q->min_heap[q->size].hexagon_index = node.hexagon_index;
+    q->min_heap[q->size].min_heap_parameter = node.min_heap_parameter;
 
+    q->size++;
     heap_heapify_bottom_up(q, q->size - 1);
 }
 
-Queue_node heap_front(Heap_queue *q)
+Heap_node heap_front(Min_heap *q)
 {
-    return q->queue[0];
+    return q->min_heap[0];
 }
 
-Queue_node heap_pop(Heap_queue *q)
+Heap_node heap_pop(Min_heap *q)
 {
-    Queue_node result;
-    result.hexagon_index = q->queue[0].hexagon_index;
-    result.min_heap_parameter = q->queue[0].min_heap_parameter;
-    // not working
-    heap_swap(&q->queue[0], &q->queue[q->size - 1]);
+    Heap_node result;
+    result.hexagon_index = q->min_heap[0].hexagon_index;
+    result.min_heap_parameter = q->min_heap[0].min_heap_parameter;
+    heap_swap(&q->min_heap[0], &q->min_heap[q->size - 1]);
 
     q->size--;
 
@@ -310,9 +469,8 @@ STATUS init(int x, int y)
         map[i].air_routes_active = 0; // size della lista
     }
     // init data structures per travel_cost e change cost
-    heap_init(&change_cost_queue, MAPSIZE);
-    heap_init(&travel_cost_queue, MAPSIZE);
-
+    heap_init(&min_heap_queue, MAPSIZE);
+    hashmap_init(&cache);
     return (STATUS)0; // OK
 }
 // TODO CORRECT: NOT PROPAGATING
@@ -336,6 +494,8 @@ STATUS change_cost(int x, int y, int v, int raggio)
         return (STATUS)3;
     if (raggio <= 0)
         return (STATUS)4;
+    // invalidate cache
+    hashmap_empty(&cache);
     // change cost of the (x,y) hexagon
     int origin = toIndex(x, y);
     map[origin].cost = map[origin].cost + v;
@@ -367,18 +527,18 @@ STATUS change_cost(int x, int y, int v, int raggio)
     // TODO BUGFIX
 
     // svuota l'heap
-    heap_empty(&change_cost_queue);
-    Queue_node heap_data;
+    heap_empty(&min_heap_queue);
+    Heap_node heap_data;
     heap_data.hexagon_index = origin;
     heap_data.min_heap_parameter = 0;
-    heap_push(&change_cost_queue, heap_data);
+    heap_push(&min_heap_queue, heap_data);
 
-    while (change_cost_queue.size)
+    while (min_heap_queue.size)
     {
-        Queue_node data = heap_pop(&change_cost_queue);
+        Heap_node data = heap_pop(&min_heap_queue);
         int index = data.hexagon_index;
         int current_distance = data.min_heap_parameter;
-        // check se la distanza 
+        // check se la distanza
         if (current_distance + 1 < raggio)
         {
             // aggiungi i figli alla coda
@@ -412,17 +572,17 @@ STATUS change_cost(int x, int y, int v, int raggio)
                             newcost = 100;
                         map[ad_index].air_routes[i].cost = newcost;
                     }
-                    Queue_node d;
+                    Heap_node d;
                     d.min_heap_parameter = current_distance + 1;
                     d.hexagon_index = ad_index;
-                    heap_push(&change_cost_queue, d);
+                    heap_push(&min_heap_queue, d);
                 }
             }
         }
     }
-    heap_empty(&change_cost_queue);
+    heap_empty(&min_heap_queue);
     free(distance_array);
-    //print_map();
+    // print_map();
     return (STATUS)0;
 }
 /**
@@ -450,6 +610,10 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
     int target_index = toIndex(x2, y2);
     if (map[index].air_routes_active >= AIR_ROUTE_LIMIT)
         return (STATUS)4;
+
+    // invalidate cache
+    hashmap_empty(&cache);
+
     int air_routes_active = map[index].air_routes_active;
     if (air_routes_active)
     {
@@ -492,7 +656,6 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
     return (STATUS)0; // OK
 }
 
-// TODO BUGFIX
 /**
  * @brief travel cost calcola il percorso minimo
  *
@@ -517,9 +680,14 @@ int travel_cost(int xp, int yp, int xd, int yd)
     if (map[departing].cost == 0)
         return -1;
     // fine edge cases
-
+    int cached_value = hashmap_search(&cache, toHashmapKey((unsigned int)departing, (unsigned int)arrival));
+    if (cached_value != CACHE_NOT_FOUND)
+    {
+        return cached_value;
+    }
+    // valore nella cache non trovato, iniziare esplorazione mappa
     // svuota coda
-    heap_empty(&travel_cost_queue);
+    heap_empty(&min_heap_queue);
     int *distance = (int *)malloc(MAPSIZE * sizeof(int));
     // set max distance
     for (int i = 0; i < MAPSIZE; i++)
@@ -527,16 +695,16 @@ int travel_cost(int xp, int yp, int xd, int yd)
         distance[i] = 0x7FFFFFFF;
     }
     distance[departing] = 0;
-    Queue_node heap_data;
+    Heap_node heap_data;
     heap_data.hexagon_index = departing;
     heap_data.min_heap_parameter = 0;
-    heap_push(&travel_cost_queue, heap_data);
+    heap_push(&min_heap_queue, heap_data);
 
     // l'errore è qui
     int current_hexagon_index = 0;
-    while (travel_cost_queue.size)
+    while (min_heap_queue.size)
     {
-        Queue_node current_hexagon = heap_pop(&travel_cost_queue);
+        Heap_node current_hexagon = heap_pop(&min_heap_queue);
         current_hexagon_index = current_hexagon.hexagon_index;
 
         int current_hexagon_x, current_hexagon_y;
@@ -558,44 +726,45 @@ int travel_cost(int xp, int yp, int xd, int yd)
                 if (inBounds(adx, ady) && distance[ad_index] > newdistance)
                 {
                     distance[ad_index] = newdistance;
-                    Queue_node qn;
+                    Heap_node qn;
                     qn.min_heap_parameter = newdistance;
                     qn.hexagon_index = ad_index;
-                    heap_push(&travel_cost_queue, qn);
+                    heap_push(&min_heap_queue, qn);
                 }
             }
 
             // air routes
-            if(map[current_hexagon_index].air_routes_active)
+            if (map[current_hexagon_index].air_routes_active)
             {
                 // itera le rotte aeree
-                for(int i = 0; i < map[current_hexagon_index].air_routes_active; i++)
+                for (int i = 0; i < map[current_hexagon_index].air_routes_active; i++)
                 {
                     int air_route_index = map[current_hexagon_index].air_routes[i].hexagon_index;
                     int air_route_cost = map[current_hexagon_index].air_routes[i].cost;
                     // il costo sarà dato dal costo della rotta aerea + la distanza del nodo di partenza dalla sorgente
                     int newdistance = air_route_cost + distance[current_hexagon_index];
-                    if(newdistance < distance[air_route_index])
+                    if (newdistance < distance[air_route_index])
                     {
                         // la distanza nuova proposta è minore di quella attuale
                         distance[air_route_index] = newdistance;
-                        Queue_node qn;
+                        Heap_node qn;
                         qn.min_heap_parameter = newdistance;
                         qn.hexagon_index = air_route_index;
-                        heap_push(&travel_cost_queue, qn);
+                        heap_push(&min_heap_queue, qn);
                     }
                 }
             }
-            
         }
     }
 
     int result = distance[arrival];
+
     free(distance);
     distance = NULL;
-    heap_empty(&travel_cost_queue);
+    heap_empty(&min_heap_queue);
     if (result == 0x7FFFFFFF)
-        return -1;
+        result = -1;
+    hashmap_insert(&cache, toHashmapKey((unsigned int)departing, (unsigned int)arrival), result);
     return result;
 }
 
@@ -605,8 +774,8 @@ int main(int argc, char **argv)
     FILE *istream = stdin;
     FILE *ostream = stdout;
     // define I/O streams as file
-    //istream = fopen("./test/large.txt", "r");
-    //ostream = fopen("output.txt", "w");
+    istream = fopen("./test/large.txt", "r");
+    ostream = fopen("output.txt", "w");
 
     char buffer[BUFFER_SIZE];
     char *input = NULL;
@@ -674,14 +843,16 @@ int main(int argc, char **argv)
 
     DEBUGPRINT("Cleaning up...");
     // closing streams
-    fclose(istream);
-    fclose(ostream);
+    if(istream != stdin) fclose(istream);
+    if(ostream != stdout) fclose(ostream);
 
     // free memory
     if (map)
     {
         free(map);
     }
+    heap_empty(&min_heap_queue);
+    hashmap_empty(&cache);
 
     return 0;
 }
