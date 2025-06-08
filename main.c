@@ -27,7 +27,7 @@
 #endif
 
 // defines
-#define BUFFER_SIZE 50
+#define BUFFER_SIZE 100
 #define AIR_ROUTE_LIMIT 5
 #define CACHE_NOT_FOUND -42
 #define OK "OK\n"
@@ -57,7 +57,7 @@ typedef struct Hashmap_node
      * la chiave sarà la concatenazione degli indici degli esagono strutturati in questo modo:
      * partenza.arrivo = partenza * 10 ^ n + arrivo
      */
-    unsigned int key;
+    size_t key;
     int value;
     struct Hashmap_node *next;
 } Hashmap_node;
@@ -130,17 +130,27 @@ void air_route_swap(Air_route *a, Air_route *b)
     *a = *b;
     *b = *tmp;
 }
-
-unsigned int toHashmapKey(unsigned int a, unsigned int b)
+// Szudzik pair hashing
+// articolo qui: https://sair.synerise.com/efficient-integer-pairs-hashing/
+size_t Szudzik(unsigned int x, unsigned int y)
 {
-    // non commutativa infatti a*b + a != b*a + b
-    return a * b + a;
+    if (x > y)
+    {
+        // x = max{x,y}
+        return (size_t)x * x + x + y;
+    }
+    else
+    {
+        // x  != max{x,y}
+        return (size_t)y * y + x;
+    }
 }
 
 // hashmap functions
 void hashmap_empty(Hashmap *h)
 {
-    if(!h->map) return;
+    if (!h->map)
+        return;
     if (h->size == 0)
         return;
     for (int i = 0; i < h->capacity; i++)
@@ -183,17 +193,17 @@ void hashmap_init(Hashmap *h)
 }
 
 // hashing con metodo della divisione
-unsigned int hashing_function(Hashmap *h, unsigned int toHash)
+size_t hashing_function(Hashmap *h, size_t toHash)
 {
-    unsigned int hashed = toHash % h->capacity;
+    size_t hashed = toHash % h->capacity;
     return hashed;
 }
 
-void hashmap_insert(Hashmap *h, unsigned int key, int value)
+void hashmap_insert(Hashmap *h, size_t key, int value)
 {
     DEBUGPRINT("INSERTING ELEMENT IN CACHE")
-    unsigned int digest = hashing_function(h, key);
-    Hashmap_node* new_node = (Hashmap_node *)malloc(sizeof(Hashmap_node));
+    size_t digest = hashing_function(h, key);
+    Hashmap_node *new_node = (Hashmap_node *)malloc(sizeof(Hashmap_node));
     new_node->key = key;
     new_node->value = value;
     new_node->next = NULL;
@@ -213,9 +223,9 @@ void hashmap_insert(Hashmap *h, unsigned int key, int value)
     h->size++;
 }
 
-void hashmap_delete(Hashmap *h, unsigned int key)
+void hashmap_delete(Hashmap *h, size_t key)
 {
-    unsigned int digest = hashing_function(h, key);
+    size_t digest = hashing_function(h, key);
 
     Hashmap_node *prev = NULL;
     Hashmap_node *curr = h->map[digest];
@@ -252,9 +262,9 @@ void hashmap_delete(Hashmap *h, unsigned int key)
  * @return value se la key è presente nella hashmap, altrimenti -42
  * (userò questa hashmap per inserire distanze quindi i valori possibili sono -1 oppure distanze >= 0)
  */
-int hashmap_search(Hashmap *h, unsigned int key)
+int hashmap_search(Hashmap *h, size_t key)
 {
-    unsigned int digest = hashing_function(h, key);
+    size_t digest = hashing_function(h, key);
     Hashmap_node *list = h->map[digest];
     while (list && list->key != key)
     {
@@ -470,7 +480,7 @@ STATUS init(int x, int y)
     }
     // init data structures per travel_cost e change cost
     heap_init(&min_heap_queue, MAPSIZE);
-    hashmap_init(&cache);
+    hashmap_empty(&cache);
     return (STATUS)0; // OK
 }
 // TODO CORRECT: NOT PROPAGATING
@@ -580,9 +590,7 @@ STATUS change_cost(int x, int y, int v, int raggio)
             }
         }
     }
-    heap_empty(&min_heap_queue);
     free(distance_array);
-    // print_map();
     return (STATUS)0;
 }
 /**
@@ -680,7 +688,7 @@ int travel_cost(int xp, int yp, int xd, int yd)
     if (map[departing].cost == 0)
         return -1;
     // fine edge cases
-    int cached_value = hashmap_search(&cache, toHashmapKey((unsigned int)departing, (unsigned int)arrival));
+    int cached_value = hashmap_search(&cache, Szudzik((unsigned int)departing, (unsigned int)arrival));
     if (cached_value != CACHE_NOT_FOUND)
     {
         return cached_value;
@@ -756,15 +764,14 @@ int travel_cost(int xp, int yp, int xd, int yd)
             }
         }
     }
-
+    // RESULT:
     int result = distance[arrival];
 
     free(distance);
     distance = NULL;
-    heap_empty(&min_heap_queue);
     if (result == 0x7FFFFFFF)
         result = -1;
-    hashmap_insert(&cache, toHashmapKey((unsigned int)departing, (unsigned int)arrival), result);
+    hashmap_insert(&cache, Szudzik((unsigned int)departing, (unsigned int)arrival), result);
     return result;
 }
 
@@ -774,17 +781,21 @@ int main(int argc, char **argv)
     FILE *istream = stdin;
     FILE *ostream = stdout;
     // define I/O streams as file
-    istream = fopen("./test/large.txt", "r");
-    ostream = fopen("output.txt", "w");
+     istream = fopen("./test/stress_cache2.txt", "r");
+     ostream = fopen("output.txt", "w");
 
     char buffer[BUFFER_SIZE];
     char *input = NULL;
     char *cmd = NULL;
     char *parameters = NULL;
+    int command_found = 0;
     int p1, p2, p3, p4;
+    // init cache
+    hashmap_init(&cache);
     // input loop
     do
     {
+        command_found = 0;
         do
         {
             input = (char *)fgets(buffer, BUFFER_SIZE, istream);
@@ -800,6 +811,7 @@ int main(int argc, char **argv)
 
         if (!strncmp(cmd, "init", BUFFER_SIZE))
         {
+            command_found = 1;
             // init <colonne> <righe>
             sscanf(parameters, "%d %d", &p1, &p2);
             if (!init(p1, p2))
@@ -814,6 +826,7 @@ int main(int argc, char **argv)
 
         if (!strncmp(cmd, "change_cost", BUFFER_SIZE))
         {
+            command_found = 1;
             // change_cost <x> <y> <v> <raggio>
             sscanf(parameters, "%d %d %d %d", &p1, &p2, &p3, &p4);
             if (!change_cost(p1, p2, p3, p4))
@@ -824,6 +837,7 @@ int main(int argc, char **argv)
 
         if (!strncmp(cmd, "toggle_air_route", BUFFER_SIZE))
         {
+            command_found = 1;
             // toggle_air_route <x1> <y1> <x2> <y2>
             sscanf(parameters, "%d %d %d %d", &p1, &p2, &p3, &p4);
             if (!toggle_air_route(p1, p2, p3, p4))
@@ -834,17 +848,20 @@ int main(int argc, char **argv)
 
         if (!strncmp(cmd, "travel_cost", BUFFER_SIZE))
         {
+            command_found = 1;
             // travel_cost <xp> <yp> <xd> <yd>
             sscanf(parameters, "%d %d %d %d", &p1, &p2, &p3, &p4);
             fprintf(ostream, "%d\n", travel_cost(p1, p2, p3, p4));
         }
 
-    } while (1);
+    } while (command_found);
 
     DEBUGPRINT("Cleaning up...");
     // closing streams
-    if(istream != stdin) fclose(istream);
-    if(ostream != stdout) fclose(ostream);
+    if (istream != stdin)
+        fclose(istream);
+    if (ostream != stdout)
+        fclose(ostream);
 
     // free memory
     if (map)
