@@ -5,7 +5,7 @@
 #include <math.h>
 
 // helper macros
-#define _DEBUG
+//#define _DEBUG
 
 #ifdef _DEBUG
 #include <stdio.h>
@@ -15,6 +15,7 @@
 #define STRTRACE(x) printf("%s : %s", #x, x)
 #define STRINFO(x) printf("%s[%d] : %s", #x, x, strlen(x) + 1)
 #define DEBUGPRINT(msg) printf("[DEBUG] : %s [END]\n", msg);
+#define STAMPPRINT(n, msg) printf("[DEBUG] riga [%d] : %s [END]\n", n, msg)
 
 #else
 
@@ -23,6 +24,7 @@
 #define STRTRACE(x)
 #define STRINFO(x)
 #define DEBUGPRINT(msg)
+#define STAMPPRINT(n, msg)
 
 #endif
 
@@ -96,33 +98,11 @@ int adiacenze[2][6][2] = {
 // int *cache = NULL;
 Min_heap min_heap_queue;
 Hashmap cache;
+
 /* ============ FINE GLOBALI ============ */
 
 // Functions
 int toIndex(int x, int y);
-void print_map()
-{
-    printf("MAPY : %d\nMAPX : %d\nMAPSIZE : %d\n", MAPY, MAPX, MAPSIZE);
-    // char **matrix[MAPY][MAPX];
-    for (int i = 0; i < MAPY; i++)
-    {
-        for (int j = 0; j < MAPX; j++)
-        {
-            if (i % 2 == 0)
-            {
-                printf("%d ", map[toIndex(j, i)].cost);
-            }
-            else
-            {
-                if (j == 0)
-                    printf(" ");
-                printf("%d ", map[toIndex(j, i)].cost);
-            }
-        }
-        printf("\n");
-    }
-    printf("\nEND OF PRINT\n");
-}
 
 void air_route_swap(Air_route *a, Air_route *b)
 {
@@ -207,7 +187,7 @@ size_t hashing_function(Hashmap *h, size_t toHash)
 
 void hashmap_insert(Hashmap *h, size_t key, int value)
 {
-    DEBUGPRINT("INSERTING ELEMENT IN CACHE")
+    // STAMPPRINT(COMMAND_NUMBER, "INSERTING ELEMENT IN CACHE");
     size_t digest = hashing_function(h, key);
     Hashmap_node *new_node = (Hashmap_node *)malloc(sizeof(Hashmap_node));
     new_node->key = key;
@@ -278,11 +258,11 @@ int hashmap_search(Hashmap *h, size_t key)
     }
     if (list == NULL)
     {
-        DEBUGPRINT("CACHE MISS");
+        // STAMPPRINT(COMMAND_NUMBER, "CACHE MISS");
         // chiave non trovata
         return CACHE_NOT_FOUND;
     }
-    DEBUGPRINT("CACHE HIT");
+    // STAMPPRINT(COMMAND_NUMBER, "CACHE HIT");
     return list->value;
 }
 
@@ -340,6 +320,9 @@ void heap_init(Min_heap *q, size_t queue_max_lenght)
 void heap_empty(Min_heap *q)
 {
     q->size = 0;
+    // if (q->min_heap)
+    //     free(q->min_heap);
+    // q->min_heap = (Heap_node *)calloc(q->capacity, sizeof(Heap_node));
 }
 
 /**
@@ -489,7 +472,34 @@ STATUS init(int x, int y)
     hashmap_empty(&cache);
     return (STATUS)0; // OK
 }
-// TODO CORRECT: NOT PROPAGATING
+/**
+ * @brief funzione di costo calcolata per l'esagono e le rotte aeree
+ * FONDAMENTALE il floating point, senza il quale questa funzione darebbe
+ * un risultato differente
+ * \n
+ * fraction = (float)(raggio - distance) / raggio;
+ * \n 
+ * newcost = original_cost + (int) floorf(v * fraction);
+ * 
+ * @param original_cost costo originario
+ * @param v             fattore da scalare v passato nella change_cost
+ * @param raggio        raggio fornito dalla change_cost
+ * @param distance      distanza attuale
+ * @return newcost 
+ */
+int calculate_new_cost(int original_cost, int v, int raggio, int distance)
+{
+    // =====================================================
+    float fraction = (float)(raggio - distance) / raggio;
+    int newcost = original_cost + (int)floorf(v * fraction);
+    // =====================================================
+    if (newcost < 0)
+        newcost = 0;
+    if (newcost > 100)
+        newcost = 100;
+    return newcost;
+}
+
 /**
  * @brief
  *
@@ -501,7 +511,7 @@ STATUS init(int x, int y)
  */
 STATUS change_cost(int x, int y, int v, int raggio)
 {
-    // check if map exists
+    // controlla se esiste un puntatore alla mappa
     if (!map)
         return (STATUS)1;
     if (!inBounds(x, y))
@@ -510,37 +520,31 @@ STATUS change_cost(int x, int y, int v, int raggio)
         return (STATUS)3;
     if (raggio <= 0)
         return (STATUS)4;
+
     // invalidate cache
     hashmap_empty(&cache);
-    // change cost of the (x,y) hexagon
-    int origin = toIndex(x, y);
-    map[origin].cost = map[origin].cost + v;
-    if (map[origin].cost < 0)
-        map[origin].cost = 0;
-    if (map[origin].cost > 100)
-        map[origin].cost = 100;
 
+    // calcola nuovo costo esagono d'origine
+    int origin = toIndex(x, y);
+    map[origin].cost = calculate_new_cost(map[origin].cost, v, raggio, 0);
     // rotte aeree dell'origine
     for (int i = 0; i < map[origin].air_routes_active; i++)
     {
-        int newcost = map[origin].air_routes[i].cost + v;
-        if (newcost < 0)
-            newcost = 0;
-        if (newcost > 100)
-            newcost = 100;
-        map[origin].air_routes[i].cost = newcost;
+        map[origin].air_routes[i].cost = calculate_new_cost(map[origin].air_routes[i].cost, v, raggio, 0);
     }
 
+    // se raggio == 1 non c'è ulteriore propagazione
     if (raggio == 1)
         return (STATUS)0;
 
+    // allocazione memoria dinamica per vettore distanze
+    // TODO: dichiarare variabile globale da azzerare per change_cost e travel_cost
     int *distance_array = (int *)malloc(MAPSIZE * sizeof(int));
     for (int i = 0; i < MAPSIZE; i++)
     {
-        distance_array[i] = 0x7FFFFFFF;
+        distance_array[i] = 0x7FFFFFFF; // set a INT_MAX che rappresenta infty
     }
     distance_array[origin] = 0;
-    // TODO BUGFIX
 
     // svuota l'heap
     heap_empty(&min_heap_queue);
@@ -556,7 +560,7 @@ STATUS change_cost(int x, int y, int v, int raggio)
         int current_distance = data.min_heap_parameter;
         int curx, cury;
         toCoord(index, &curx, &cury);
-        // check se la distanza
+        // check se la distanza + 1 è minore del raggio
         if (current_distance + 1 < raggio)
         {
             // aggiungi i figli alla coda
@@ -576,36 +580,23 @@ STATUS change_cost(int x, int y, int v, int raggio)
             }
         }
     }
-    // spostare parte in cui si aggiornano i costi qui
+
     // iterare attraverso tutte le distanze, e se la distanza è != 0x7FFFFFFF
     // aggiornare il costo del nodo e delle sue rotte aeree
-    int newcost = 0;
     for (int i = 0; i < MAPSIZE; i++)
     {
         if (distance_array[i] != 0x7FFFFFFF)
         {
             // aggiornare esagono i
-            newcost = map[i].cost + v * (raggio - distance_array[i]) / raggio;
-            // limitare a [0,100]
-            if (newcost < 0)
-                newcost = 0;
-            if (newcost > 100)
-                newcost = 100;
-            map[i].cost = newcost;
+            map[i].cost = calculate_new_cost(map[i].cost, v, raggio, distance_array[i]);
             // aggiornare rotte aeree
             for (int j = 0; j < map[i].air_routes_active; j++)
             {
-                newcost =
-                    map[i].air_routes[j].cost + v * (raggio - distance_array[i]) / raggio;
-                if (newcost < 0)
-                    newcost = 0;
-                if (newcost > 100)
-                    newcost = 100;
-                map[i].air_routes[j].cost = newcost;
+                map[i].air_routes[j].cost = calculate_new_cost(map[i].cost, v, raggio, distance_array[i]);
             }
         }
     }
-    print_map();
+    // print_map(x, y, v, raggio);
     free(distance_array);
     return (STATUS)0;
 }
@@ -797,9 +788,9 @@ int main(int argc, char **argv)
     FILE *istream = stdin;
     FILE *ostream = stdout;
     // define I/O streams as file
-    //istream = fopen("./testlong.txt", "r");
+    //istream = fopen("./test/empty.txt", "r");
     //ostream = fopen("output.txt", "w");
-
+    //map_stream = fopen("map.txt", "w");
     char buffer[BUFFER_SIZE];
     char *input = NULL;
     char *cmd = NULL;
@@ -812,7 +803,9 @@ int main(int argc, char **argv)
     {
 
         input = (char *)fgets(buffer, BUFFER_SIZE, istream);
-        if(!input) break;
+        if (!input)
+            break;
+
         // split string in command and parameters
         cmd = strtok(input, " ");
         parameters = strtok(NULL, "\0");
