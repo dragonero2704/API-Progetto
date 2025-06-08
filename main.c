@@ -126,9 +126,16 @@ void print_map()
 
 void air_route_swap(Air_route *a, Air_route *b)
 {
-    Air_route *tmp = a;
-    *a = *b;
-    *b = *tmp;
+    Air_route tmp;
+    tmp.cost = a->cost;
+    tmp.hexagon_index = a->hexagon_index;
+    // swap
+    a->cost = b->cost;
+    a->hexagon_index = b->hexagon_index;
+
+    b->cost = tmp.cost;
+    b->hexagon_index = tmp.hexagon_index;
+    return;
 }
 // Szudzik pair hashing
 // articolo qui: https://sair.synerise.com/efficient-integer-pairs-hashing/
@@ -548,45 +555,54 @@ STATUS change_cost(int x, int y, int v, int raggio)
         Heap_node data = heap_pop(&min_heap_queue);
         int index = data.hexagon_index;
         int current_distance = data.min_heap_parameter;
+        int curx, cury;
+        toCoord(index, &curx, &cury);
         // check se la distanza
         if (current_distance + 1 < raggio)
         {
             // aggiungi i figli alla coda
             for (int i = 0; i < 6; i++)
             {
-                int curx, cury;
-                toCoord(index, &curx, &cury);
                 int adx = curx + adiacenze[cury % 2][i][0];
                 int ady = cury + adiacenze[cury % 2][i][1];
                 int ad_index = toIndex(adx, ady);
-                if (ad_index == origin)
-                    continue;
                 if (inBounds(adx, ady) && distance_array[ad_index] > current_distance + 1)
                 {
                     distance_array[ad_index] = current_distance + 1;
-                    int newcost = map[ad_index].cost +
-                                  v * (raggio - current_distance - 1) / raggio;
-                    if (newcost < 0)
-                        newcost = 0;
-                    if (newcost > 100)
-                        newcost = 100;
-                    map[ad_index].cost = newcost;
-                    // processa rotte aeree dell'adiacenza
-                    for (int i = 0; i < map[ad_index].air_routes_active; i++)
-                    {
-                        newcost = map[ad_index].air_routes[i].cost +
-                                  v * (raggio - current_distance - 1) / raggio;
-                        if (newcost < 0)
-                            newcost = 0;
-                        if (newcost > 100)
-                            newcost = 100;
-                        map[ad_index].air_routes[i].cost = newcost;
-                    }
                     Heap_node d;
                     d.min_heap_parameter = current_distance + 1;
                     d.hexagon_index = ad_index;
                     heap_push(&min_heap_queue, d);
                 }
+            }
+        }
+    }
+    // spostare parte in cui si aggiornano i costi qui
+    // iterare attraverso tutte le distanze, e se la distanza è != 0x7FFFFFFF
+    // aggiornare il costo del nodo e delle sue rotte aeree
+    int newcost = 0;
+    for (int i = 0; i < MAPSIZE; i++)
+    {
+        if (distance_array[i] != 0x7FFFFFFF)
+        {
+            // aggiornare esagono i
+            newcost = map[i].cost + v * (raggio - distance_array[i]) / raggio;
+            // limitare a [0,100]
+            if (newcost < 0)
+                newcost = 0;
+            if (newcost > 100)
+                newcost = 100;
+            map[i].cost = newcost;
+            // aggiornare rotte aeree
+            for (int j = 0; j < map[i].air_routes_active; j++)
+            {
+                newcost =
+                    map[i].air_routes[j].cost + v * (raggio - distance_array[i]) / raggio;
+                if (newcost < 0)
+                    newcost = 0;
+                if (newcost > 100)
+                    newcost = 100;
+                map[i].air_routes[j].cost = newcost;
             }
         }
     }
@@ -616,8 +632,6 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
 
     int index = toIndex(x1, y1);
     int target_index = toIndex(x2, y2);
-    if (map[index].air_routes_active >= AIR_ROUTE_LIMIT)
-        return (STATUS)4;
 
     // invalidate cache
     hashmap_empty(&cache);
@@ -641,6 +655,7 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
         if (found == -1)
         {
             // aggiungo air_route
+            if(map[index].air_routes_active == 5) return (STATUS)4;
             map[index].air_routes[air_routes_active].cost = average / (1 + air_routes_active);
             map[index].air_routes[air_routes_active].hexagon_index = target_index;
             map[index].air_routes_active++;
@@ -747,17 +762,17 @@ int travel_cost(int xp, int yp, int xd, int yd)
                 // itera le rotte aeree
                 for (int i = 0; i < map[current_hexagon_index].air_routes_active; i++)
                 {
-                    int air_route_index = map[current_hexagon_index].air_routes[i].hexagon_index;
+                    int air_route_index_destination = map[current_hexagon_index].air_routes[i].hexagon_index;
                     int air_route_cost = map[current_hexagon_index].air_routes[i].cost;
                     // il costo sarà dato dal costo della rotta aerea + la distanza del nodo di partenza dalla sorgente
                     int newdistance = air_route_cost + distance[current_hexagon_index];
-                    if (newdistance < distance[air_route_index])
+                    if (newdistance < distance[air_route_index_destination])
                     {
                         // la distanza nuova proposta è minore di quella attuale
-                        distance[air_route_index] = newdistance;
+                        distance[air_route_index_destination] = newdistance;
                         Heap_node qn;
                         qn.min_heap_parameter = newdistance;
-                        qn.hexagon_index = air_route_index;
+                        qn.hexagon_index = air_route_index_destination;
                         heap_push(&min_heap_queue, qn);
                     }
                 }
@@ -781,8 +796,8 @@ int main(int argc, char **argv)
     FILE *istream = stdin;
     FILE *ostream = stdout;
     // define I/O streams as file
-     istream = fopen("./test/stress_cache2.txt", "r");
-     ostream = fopen("output.txt", "w");
+    istream = fopen("./testlong.txt", "r");
+    ostream = fopen("output.txt", "w");
 
     char buffer[BUFFER_SIZE];
     char *input = NULL;
@@ -793,6 +808,7 @@ int main(int argc, char **argv)
     // init cache
     hashmap_init(&cache);
     // input loop
+    unsigned int commands_read = 0;
     do
     {
         command_found = 0;
@@ -800,14 +816,10 @@ int main(int argc, char **argv)
         {
             input = (char *)fgets(buffer, BUFFER_SIZE, istream);
         } while (!input);
-
-        // delete trailing "\n"
-        buffer[strlen(input) - 1] = '\0';
+        commands_read += 1;
         // split string in command and parameters
-        cmd = strtok(buffer, " ");
+        cmd = strtok(input, " ");
         parameters = strtok(NULL, "\0");
-        if (cmd == NULL)
-            break;
 
         if (!strncmp(cmd, "init", BUFFER_SIZE))
         {
@@ -869,7 +881,15 @@ int main(int argc, char **argv)
         free(map);
     }
     heap_empty(&min_heap_queue);
+    if (min_heap_queue.min_heap)
+    {
+        free(min_heap_queue.min_heap);
+    }
     hashmap_empty(&cache);
+    if (cache.map)
+    {
+        free(cache.map);
+    }
 
     return 0;
 }

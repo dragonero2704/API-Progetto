@@ -1,2 +1,4 @@
 # ignora eseguibili
 *.exe
+.vscode
+Makefile
