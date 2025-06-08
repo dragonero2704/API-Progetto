@@ -6408,4 +6408,3 @@ toggle_air_route 135 413 19 158
 travel_cost 70 419 56 154
 travel_cost 64 304 47 514
 toggle_air_route 149 482 89 263
-

@@ -5,7 +5,7 @@
 #include <math.h>
 
 // helper macros
-// #define _DEBUG
+#define _DEBUG
 
 #ifdef _DEBUG
 #include <stdio.h>
@@ -135,7 +135,6 @@ void air_route_swap(Air_route *a, Air_route *b)
 
     b->cost = tmp.cost;
     b->hexagon_index = tmp.hexagon_index;
-    return;
 }
 // Szudzik pair hashing
 // articolo qui: https://sair.synerise.com/efficient-integer-pairs-hashing/
@@ -373,7 +372,7 @@ void heap_heapify_bottom_up(Min_heap *q, int index)
  * @param q
  * @param index
  */
-void heap_heapify_top_bottom(Min_heap *q, int index)
+void heap_heapify_top_down(Min_heap *q, int index)
 {
     int min_index = index;
     int left = heap_left(index);
@@ -392,7 +391,7 @@ void heap_heapify_top_bottom(Min_heap *q, int index)
     {
         heap_swap(&q->min_heap[index], &q->min_heap[min_index]);
         // propaga aggiornamento heap verso il basso (foglie)
-        heap_heapify_top_bottom(q, min_index);
+        heap_heapify_top_down(q, min_index);
     }
 }
 
@@ -419,7 +418,7 @@ Heap_node heap_pop(Min_heap *q)
 
     q->size--;
 
-    heap_heapify_top_bottom(q, 0);
+    heap_heapify_top_down(q, 0);
 
     return result;
 }
@@ -606,6 +605,7 @@ STATUS change_cost(int x, int y, int v, int raggio)
             }
         }
     }
+    print_map();
     free(distance_array);
     return (STATUS)0;
 }
@@ -655,7 +655,8 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
         if (found == -1)
         {
             // aggiungo air_route
-            if(map[index].air_routes_active == 5) return (STATUS)4;
+            if (map[index].air_routes_active == 5)
+                return (STATUS)4;
             map[index].air_routes[air_routes_active].cost = average / (1 + air_routes_active);
             map[index].air_routes[air_routes_active].hexagon_index = target_index;
             map[index].air_routes_active++;
@@ -796,34 +797,28 @@ int main(int argc, char **argv)
     FILE *istream = stdin;
     FILE *ostream = stdout;
     // define I/O streams as file
-    istream = fopen("./testlong.txt", "r");
-    ostream = fopen("output.txt", "w");
+    //istream = fopen("./testlong.txt", "r");
+    //ostream = fopen("output.txt", "w");
 
     char buffer[BUFFER_SIZE];
     char *input = NULL;
     char *cmd = NULL;
     char *parameters = NULL;
-    int command_found = 0;
     int p1, p2, p3, p4;
     // init cache
     hashmap_init(&cache);
     // input loop
-    unsigned int commands_read = 0;
     do
     {
-        command_found = 0;
-        do
-        {
-            input = (char *)fgets(buffer, BUFFER_SIZE, istream);
-        } while (!input);
-        commands_read += 1;
+
+        input = (char *)fgets(buffer, BUFFER_SIZE, istream);
+        if(!input) break;
         // split string in command and parameters
         cmd = strtok(input, " ");
         parameters = strtok(NULL, "\0");
 
         if (!strncmp(cmd, "init", BUFFER_SIZE))
         {
-            command_found = 1;
             // init <colonne> <righe>
             sscanf(parameters, "%d %d", &p1, &p2);
             if (!init(p1, p2))
@@ -838,7 +833,6 @@ int main(int argc, char **argv)
 
         if (!strncmp(cmd, "change_cost", BUFFER_SIZE))
         {
-            command_found = 1;
             // change_cost <x> <y> <v> <raggio>
             sscanf(parameters, "%d %d %d %d", &p1, &p2, &p3, &p4);
             if (!change_cost(p1, p2, p3, p4))
@@ -849,7 +843,6 @@ int main(int argc, char **argv)
 
         if (!strncmp(cmd, "toggle_air_route", BUFFER_SIZE))
         {
-            command_found = 1;
             // toggle_air_route <x1> <y1> <x2> <y2>
             sscanf(parameters, "%d %d %d %d", &p1, &p2, &p3, &p4);
             if (!toggle_air_route(p1, p2, p3, p4))
@@ -860,13 +853,12 @@ int main(int argc, char **argv)
 
         if (!strncmp(cmd, "travel_cost", BUFFER_SIZE))
         {
-            command_found = 1;
             // travel_cost <xp> <yp> <xd> <yd>
             sscanf(parameters, "%d %d %d %d", &p1, &p2, &p3, &p4);
             fprintf(ostream, "%d\n", travel_cost(p1, p2, p3, p4));
         }
 
-    } while (command_found);
+    } while (input);
 
     DEBUGPRINT("Cleaning up...");
     // closing streams
