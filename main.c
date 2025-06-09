@@ -5,12 +5,11 @@
 #include <math.h>
 
 // helper macros
-//#define _DEBUG
+#define _DEBUG
 
 #ifdef _DEBUG
-#include <stdio.h>
 
-#define TRACE(x) printf("%s : %d", #x, x)
+#define TRACE(x) printf("%s : %llu", #x, x)
 #define HEXTRACE(x) printf("%s : %x", #x, x)
 #define STRTRACE(x) printf("%s : %s", #x, x)
 #define STRINFO(x) printf("%s[%d] : %s", #x, x, strlen(x) + 1)
@@ -29,7 +28,7 @@
 #endif
 
 // defines
-#define BUFFER_SIZE 100
+#define BUFFER_SIZE 50
 #define AIR_ROUTE_LIMIT 5
 #define CACHE_NOT_FOUND -42
 #define OK "OK\n"
@@ -55,11 +54,7 @@ typedef struct Min_heap
 // hashmap
 typedef struct Hashmap_node
 {
-    /*
-     * la chiave sarà la concatenazione degli indici degli esagono strutturati in questo modo:
-     * partenza.arrivo = partenza * 10 ^ n + arrivo
-     */
-    size_t key;
+    unsigned int key;
     int value;
     struct Hashmap_node *next;
 } Hashmap_node;
@@ -95,13 +90,12 @@ int MAPY = 0;
 int adiacenze[2][6][2] = {
     {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {-1, 1}, {-1, -1}},
     {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, -1}, {1, 1}}};
-// int *cache = NULL;
 Min_heap min_heap_queue;
 Hashmap cache;
 
 /* ============ FINE GLOBALI ============ */
 
-// Functions
+// =========================================================== FUNCTIONS =========================================================== //
 int toIndex(int x, int y);
 
 void air_route_swap(Air_route *a, Air_route *b)
@@ -118,17 +112,17 @@ void air_route_swap(Air_route *a, Air_route *b)
 }
 // Szudzik pair hashing
 // articolo qui: https://sair.synerise.com/efficient-integer-pairs-hashing/
-size_t Szudzik(unsigned int x, unsigned int y)
+unsigned int Szudzik(unsigned int x, unsigned int y)
 {
     if (x > y)
     {
         // x = max{x,y}
-        return (size_t)x * x + x + y;
+        return (unsigned int)x * x + x + y;
     }
     else
     {
         // x  != max{x,y}
-        return (size_t)y * y + x;
+        return (unsigned int)y * y + x;
     }
 }
 
@@ -179,16 +173,16 @@ void hashmap_init(Hashmap *h)
 }
 
 // hashing con metodo della divisione
-size_t hashing_function(Hashmap *h, size_t toHash)
+unsigned int hashing_function(Hashmap *h, unsigned int toHash)
 {
-    size_t hashed = toHash % h->capacity;
+    unsigned int hashed = toHash % h->capacity;
     return hashed;
 }
 
-void hashmap_insert(Hashmap *h, size_t key, int value)
+void hashmap_insert(Hashmap *h, unsigned int key, int value)
 {
     // STAMPPRINT(COMMAND_NUMBER, "INSERTING ELEMENT IN CACHE");
-    size_t digest = hashing_function(h, key);
+    unsigned int digest = hashing_function(h, key);
     Hashmap_node *new_node = (Hashmap_node *)malloc(sizeof(Hashmap_node));
     new_node->key = key;
     new_node->value = value;
@@ -209,9 +203,9 @@ void hashmap_insert(Hashmap *h, size_t key, int value)
     h->size++;
 }
 
-void hashmap_delete(Hashmap *h, size_t key)
+void hashmap_delete(Hashmap *h, unsigned int key)
 {
-    size_t digest = hashing_function(h, key);
+    unsigned int digest = hashing_function(h, key);
 
     Hashmap_node *prev = NULL;
     Hashmap_node *curr = h->map[digest];
@@ -248,9 +242,9 @@ void hashmap_delete(Hashmap *h, size_t key)
  * @return value se la key è presente nella hashmap, altrimenti -42
  * (userò questa hashmap per inserire distanze quindi i valori possibili sono -1 oppure distanze >= 0)
  */
-int hashmap_search(Hashmap *h, size_t key)
+int hashmap_search(Hashmap *h, unsigned int key)
 {
-    size_t digest = hashing_function(h, key);
+    unsigned int digest = hashing_function(h, key);
     Hashmap_node *list = h->map[digest];
     while (list && list->key != key)
     {
@@ -265,7 +259,7 @@ int hashmap_search(Hashmap *h, size_t key)
     // STAMPPRINT(COMMAND_NUMBER, "CACHE HIT");
     return list->value;
 }
-
+// ============================================================= HEAP ============================================================= //
 // heap utilities
 int heap_parent(int index)
 {
@@ -280,6 +274,21 @@ int heap_left(int index)
 int heap_right(int index)
 {
     return (index * 2) + 2;
+}
+/**
+ * @brief raddoppia la capacità dell'heap riallocando q->min_heap_queue in un nuovo array
+ * 
+ * @param q min_heap da ingrandire
+ */
+void heap_grow(Min_heap* q)
+{
+    // allocazione di memoria per nuovo array, uso calloc per settare tutti i byte a 0
+    Heap_node* newarr = (Heap_node*)calloc(q->capacity * 2, sizeof(Heap_node));
+    // copia vecchio array nel nuovo array
+    memcpy(newarr, q->min_heap, sizeof(Heap_node)*q->capacity);
+    free(q->min_heap);
+    q->min_heap = newarr;
+    q->capacity = q->capacity * 2;
 }
 
 // heap functions
@@ -309,7 +318,13 @@ void heap_init(Min_heap *q, size_t queue_max_lenght)
     q->min_heap = (Heap_node *)calloc(queue_max_lenght, sizeof(Heap_node));
 
     q->size = 0;
-    q->capacity = queue_max_lenght;
+    size_t pow2 = 1; // 2^0
+    // la capacità dell'heap deve essere la potenza di due maggiore più vicina a queue_max_length
+    while(pow2 < queue_max_lenght)
+    {
+        pow2*=2;
+    }
+    q->capacity = pow2;
 }
 
 /**
@@ -377,13 +392,19 @@ void heap_heapify_top_down(Min_heap *q, int index)
         heap_heapify_top_down(q, min_index);
     }
 }
-
+/**
+ * @brief inserisce un nuovo elemento nell'heap
+ * 
+ * @param q 
+ * @param node 
+ */
 void heap_push(Min_heap *q, Heap_node node)
 {
     q->min_heap[q->size].hexagon_index = node.hexagon_index;
     q->min_heap[q->size].min_heap_parameter = node.min_heap_parameter;
 
     q->size++;
+    if(q->size == q->capacity) heap_grow(q);
     heap_heapify_bottom_up(q, q->size - 1);
 }
 
@@ -394,6 +415,7 @@ Heap_node heap_front(Min_heap *q)
 
 Heap_node heap_pop(Min_heap *q)
 {
+    // copia dentro result del primo elemento dell'heap
     Heap_node result;
     result.hexagon_index = q->min_heap[0].hexagon_index;
     result.min_heap_parameter = q->min_heap[0].min_heap_parameter;
@@ -407,11 +429,11 @@ Heap_node heap_pop(Min_heap *q)
 }
 
 /**
- * @brief checks if the given x, y coordinates are inBounds
+ * @brief controlla se le coordinate fornite sono all'interno della mappa
  *
- * @param x
- * @param y
- * @return int
+ * @param x ascissa
+ * @param y ordinata
+ * @return 0 on success, !=0 altrimenti
  */
 STATUS inBounds(int x, int y)
 {
@@ -419,19 +441,25 @@ STATUS inBounds(int x, int y)
 }
 
 /**
- * @brief returns a status of the conversion of x y coordinates in
- * an index array, if the x,y coordiantes are out of bounds, it returns -1, 0 otherwise
+ * @brief restituisce l'indice all'interno dell'array linearizzato date che le coordinate (x,y)
  *
- * @param x x coordinate
- * @param y y coordinate
- * @param index the index corrisponding to the array calculated via y * MAPX + x
- * @return status 0 = OK, error otherwise
+ * @param x ascissa
+ * @param y ordinata
+ * @param index corrispondente all'interno dell'array linearizzato
+ * @return status 0 = OK, error altrimenti
  */
 int toIndex(int x, int y)
 {
     return y * MAPX + x;
 }
 
+/**
+ * @brief a parite da un indice VALIDO, calcola le coordinate (x,y)
+ * 
+ * @param index indice dell'array
+ * @param x ascissa
+ * @param y ordinata
+ */
 void toCoord(int index, int *x, int *y)
 {
     *x = index % MAPX;
@@ -440,10 +468,10 @@ void toCoord(int index, int *x, int *y)
 
 // init
 /**
- * @brief initialize map given the number of columns x and the number of rows y
+ * @brief inizializza la mappa dati il numero di colonne x e il numero di righe y
  *
- * @param x number of columns
- * @param y number of rows
+ * @param x numero di colonne
+ * @param y numero di righe
  * @return STATUS 0 on success
  */
 STATUS init(int x, int y)
@@ -474,8 +502,8 @@ STATUS init(int x, int y)
 }
 /**
  * @brief funzione di costo calcolata per l'esagono e le rotte aeree
- * FONDAMENTALE il floating point, senza il quale questa funzione darebbe
- * un risultato differente
+ * FONDAMENTALE il float, senza il quale questa funzione darebbe
+ * un risultato differente (e errato)
  * \n
  * fraction = (float)(raggio - distance) / raggio;
  * \n 
@@ -501,13 +529,14 @@ int calculate_new_cost(int original_cost, int v, int raggio, int distance)
 }
 
 /**
- * @brief
+ * @brief la funzione change_cost cambia il costo di un esagono (x,y) di un fattore v, propagando il cambiamento agli
+ * esagoni adiacenti ignorando costi, intransitabilità (costo = 0) e rotte aeree di v scalato per la distanza relativa al raggio
  *
- * @param x
- * @param y
- * @param v
- * @param raggio
- * @return STATUS
+ * @param x ascissa esagono
+ * @param y ordinata esagono
+ * @param v fattore di costo
+ * @param raggio raggio di propagazione
+ * @return STATUS 0 on success !=0 altrimenti
  */
 STATUS change_cost(int x, int y, int v, int raggio)
 {
@@ -601,7 +630,7 @@ STATUS change_cost(int x, int y, int v, int raggio)
     return (STATUS)0;
 }
 /**
- * @brief crea (o cancella se esiste) una air route dall'esagono (x1, y1) allìesagono (x2, h2)
+ * @brief crea (o cancella se esiste) una air route dall'esagono (x1, y1) all'esagono (x2, h2)
  * Il costo della rotta è calcolato come la media di tutte le rotte esistenti + il costo dell'esagono di partenza
  *
  * @param x1 ascissa dell'esagono di partenza
@@ -620,6 +649,7 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
         return (STATUS)2;
     if (!inBounds(x2, y2))
         return (STATUS)3;
+    // fine edge cases
 
     int index = toIndex(x1, y1);
     int target_index = toIndex(x2, y2);
@@ -672,7 +702,7 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
 }
 
 /**
- * @brief travel cost calcola il percorso minimo
+ * @brief travel cost calcola il percorso minimo da un esagono (xp,yp) a un esagono (xd, yd)
  *
  * @param xp ascissa dell'esagono di partenza
  * @param yp ordinata dell'esagono di partenza
@@ -703,13 +733,13 @@ int travel_cost(int xp, int yp, int xd, int yd)
     // valore nella cache non trovato, iniziare esplorazione mappa
     // svuota coda
     heap_empty(&min_heap_queue);
-    int *distance = (int *)malloc(MAPSIZE * sizeof(int));
+    int *distance_array = (int *)malloc(MAPSIZE * sizeof(int));
     // set max distance
     for (int i = 0; i < MAPSIZE; i++)
     {
-        distance[i] = 0x7FFFFFFF;
+        distance_array[i] = 0x7FFFFFFF;
     }
-    distance[departing] = 0;
+    distance_array[departing] = 0;
     Heap_node heap_data;
     heap_data.hexagon_index = departing;
     heap_data.min_heap_parameter = 0;
@@ -737,10 +767,10 @@ int travel_cost(int xp, int yp, int xd, int yd)
                 int ady = current_hexagon_y + adiacenze[current_hexagon_y % 2][i][1];
                 int ad_index = toIndex(adx, ady);
                 // la nuova distanza sarà il costo dell'esagono preso in analisi + la sua distanza dal punto di partenza
-                int newdistance = map[current_hexagon_index].cost + distance[current_hexagon_index];
-                if (inBounds(adx, ady) && distance[ad_index] > newdistance)
+                int newdistance = map[current_hexagon_index].cost + distance_array[current_hexagon_index];
+                if (inBounds(adx, ady) && distance_array[ad_index] > newdistance)
                 {
-                    distance[ad_index] = newdistance;
+                    distance_array[ad_index] = newdistance;
                     Heap_node qn;
                     qn.min_heap_parameter = newdistance;
                     qn.hexagon_index = ad_index;
@@ -757,11 +787,11 @@ int travel_cost(int xp, int yp, int xd, int yd)
                     int air_route_index_destination = map[current_hexagon_index].air_routes[i].hexagon_index;
                     int air_route_cost = map[current_hexagon_index].air_routes[i].cost;
                     // il costo sarà dato dal costo della rotta aerea + la distanza del nodo di partenza dalla sorgente
-                    int newdistance = air_route_cost + distance[current_hexagon_index];
-                    if (newdistance < distance[air_route_index_destination])
+                    int newdistance = air_route_cost + distance_array[current_hexagon_index];
+                    if (newdistance < distance_array[air_route_index_destination])
                     {
                         // la distanza nuova proposta è minore di quella attuale
-                        distance[air_route_index_destination] = newdistance;
+                        distance_array[air_route_index_destination] = newdistance;
                         Heap_node qn;
                         qn.min_heap_parameter = newdistance;
                         qn.hexagon_index = air_route_index_destination;
@@ -772,10 +802,10 @@ int travel_cost(int xp, int yp, int xd, int yd)
         }
     }
     // RESULT:
-    int result = distance[arrival];
+    int result = distance_array[arrival];
 
-    free(distance);
-    distance = NULL;
+    free(distance_array);
+    distance_array = NULL;
     if (result == 0x7FFFFFFF)
         result = -1;
     hashmap_insert(&cache, Szudzik((unsigned int)departing, (unsigned int)arrival), result);
@@ -790,7 +820,7 @@ int main(int argc, char **argv)
     // define I/O streams as file
     //istream = fopen("./test/empty.txt", "r");
     //ostream = fopen("output.txt", "w");
-    //map_stream = fopen("map.txt", "w");
+
     char buffer[BUFFER_SIZE];
     char *input = NULL;
     char *cmd = NULL;
@@ -806,7 +836,7 @@ int main(int argc, char **argv)
         if (!input)
             break;
 
-        // split string in command and parameters
+        // split string in cmd e parameters
         cmd = strtok(input, " ");
         parameters = strtok(NULL, "\0");
 
@@ -854,6 +884,7 @@ int main(int argc, char **argv)
     } while (input);
 
     DEBUGPRINT("Cleaning up...");
+    TRACE(min_heap_queue.capacity);
     // closing streams
     if (istream != stdin)
         fclose(istream);
