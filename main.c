@@ -71,6 +71,7 @@ typedef struct Air_route
 {
     int cost;
     int hexagon_index;
+    struct Air_route *next;
 } Air_route;
 
 // Hexagon type definition
@@ -78,8 +79,8 @@ typedef struct
 {
     // hexagon cost
     int cost;
-    Air_route air_routes[5];
-    unsigned char air_routes_active;
+    // list of air_routes
+    Air_route *air_routes_head;
 } Hexagon;
 
 /* ============== GLOBALI ============== */
@@ -486,8 +487,9 @@ STATUS init(int x, int y)
     // init cycle
     for (int i = 0; i < MAPSIZE; i++)
     {
-        map[i].cost = 1;              // costo unitario di default
-        map[i].air_routes_active = 0; // size della lista
+        map[i].cost = 1;               // costo unitario di default
+        map[i].air_routes_active = 0;  // size della lista
+        map[i].air_routes_head = NULL; // set head pointer to null
     }
     // init data structures per travel_cost e change cost
     heap_init(&min_heap_queue, MAPSIZE);
@@ -555,9 +557,17 @@ STATUS change_cost(int x, int y, int v, int raggio)
     int origin = toIndex(x, y);
     map[origin].cost = calculate_new_cost(map[origin].cost, v, raggio, 0);
     // rotte aeree dell'origine
+    /*
     for (int i = 0; i < map[origin].air_routes_active; i++)
     {
         map[origin].air_routes[i].cost = calculate_new_cost(map[origin].air_routes[i].cost, v, raggio, 0);
+    }
+    */
+    Air_route *air_route = map[origin].air_routes_head;
+    while (air_route)
+    {
+        air_route->cost = calculate_new_cost(air_route->cost, v, raggio, 0);
+        air_route = air_route->next;
     }
 
     // se raggio == 1 non c'è ulteriore propagazione
@@ -616,9 +626,17 @@ STATUS change_cost(int x, int y, int v, int raggio)
             // aggiornare esagono i
             map[i].cost = calculate_new_cost(map[i].cost, v, raggio, distance_array[i]);
             // aggiornare rotte aeree
+            /*
             for (int j = 0; j < map[i].air_routes_active; j++)
             {
                 map[i].air_routes[j].cost = calculate_new_cost(map[i].cost, v, raggio, distance_array[i]);
+            }
+            */
+            air_route = map[i].air_routes_head;
+            while (air_route)
+            {
+                air_route->cost = calculate_new_cost(air_route->cost, v, raggio, distance_array[i]);
+                air_route = air_route->next;
             }
         }
     }
@@ -653,12 +671,14 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
     // invalidate cache
     hashmap_empty(&cache);
 
-    int air_routes_active = map[index].air_routes_active;
-    if (air_routes_active)
+    // int air_routes_active = map[index].air_routes_active;
+    // if (air_routes_active)
+    if (map[index].air_routes_head)
     {
-        int found = -1;
+        Air_route* found = NULL;
         int average = map[index].cost;
         // prima scorrere le air_route
+        /*
         for (int i = 0; i < air_routes_active; i++)
         {
             average += map[index].air_routes[i].cost;
@@ -668,30 +688,63 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
                 found = i;
                 break;
             }
+        }*/
+        Air_route *air_route = map[index].air_routes_head;
+        unsigned char total_active = 0;
+        while (air_route)
+        {
+            average += air_route->cost;
+            if (air_route->hexagon_index == target_index)
+            {
+                found = air_route;
+            }
+            air_route = air_route->next;
+            total_active += 1;
         }
-        if (found == -1)
+        if (found == NULL)
         {
             // aggiungo air_route
-            if (map[index].air_routes_active == 5)
+            if (total_active == 5)
                 return (STATUS)4;
+            /*
             map[index].air_routes[air_routes_active].cost = average / (1 + air_routes_active);
             map[index].air_routes[air_routes_active].hexagon_index = target_index;
             map[index].air_routes_active++;
+            */
         }
         else
         {
             // elimina route
-            if (found != air_routes_active)
+            /*if (found != air_routes_active)
                 air_route_swap(&map[index].air_routes[found], &map[index].air_routes[air_routes_active - 1]);
-            map[index].air_routes_active--;
+            map[index].air_routes_active--;*/
+            if(found == map[index].air_routes_head)
+            {
+                // cambiare la testa della lista al suo successore
+                map[index].air_routes_head = map[index].air_routes_head->next;
+            }else{
+                air_route = map[index].air_routes_head;
+                while (air_route->next != found)
+                {
+                    air_route = air_route->next;
+                }
+                air_route->next = air_route->next->next;
+            }
+            free(found);
         }
     }
     else
     {
         // aggiungi prima nuova air route
+        /*
         map[index].air_routes[air_routes_active].hexagon_index = target_index;
         map[index].air_routes[air_routes_active].cost = map[index].cost;
         map[index].air_routes_active = 1;
+        */
+       map[index].air_routes_head = (Air_route*)malloc(sizeof(Air_route));
+       map[index].air_routes_head->hexagon_index = target_index;
+       map[index].air_routes_head->cost = map[index].cost;
+       map[index].air_routes_head->next = NULL;
     }
 
     return (STATUS)0; // OK
