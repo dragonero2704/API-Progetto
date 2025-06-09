@@ -461,6 +461,26 @@ static inline void toCoord(int index, int *x, int *y)
     *y = index / MAPX;
 }
 
+static inline void free_map()
+{
+    for (int i = 0; i < MAPSIZE; i++)
+    {
+        if (map[i].air_routes_head)
+        {
+            Air_route *tmp = map[i].air_routes_head;
+            Air_route *tmp_next = NULL;
+            while (tmp)
+            {
+                tmp_next = tmp->next;
+                free(tmp);
+                tmp = tmp_next;
+            }
+            map[i].air_routes_head = NULL;
+        }
+    }
+    free(map);
+}
+
 // init
 /**
  * @brief inizializza la mappa dati il numero di colonne x e il numero di righe y
@@ -469,6 +489,7 @@ static inline void toCoord(int index, int *x, int *y)
  * @param y numero di righe
  * @return STATUS 0 on success
  */
+
 STATUS init(int x, int y)
 {
     if (x <= 0 || y <= 0)
@@ -477,7 +498,7 @@ STATUS init(int x, int y)
     // rilascio della memoria
     if (map)
     {
-        free(map);
+        free_map();
     }
     // init variabili grandezza
     MAPSIZE = x * y;
@@ -487,8 +508,8 @@ STATUS init(int x, int y)
     // init cycle
     for (int i = 0; i < MAPSIZE; i++)
     {
-        map[i].cost = 1;               // costo unitario di default
-        map[i].air_routes_active = 0;  // size della lista
+        map[i].cost = 1; // costo unitario di default
+        // map[i].air_routes_active = 0;  // size della lista
         map[i].air_routes_head = NULL; // set head pointer to null
     }
     // init data structures per travel_cost e change cost
@@ -675,7 +696,7 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
     // if (air_routes_active)
     if (map[index].air_routes_head)
     {
-        Air_route* found = NULL;
+        Air_route *found = NULL;
         int average = map[index].cost;
         // prima scorrere le air_route
         /*
@@ -690,7 +711,7 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
             }
         }*/
         Air_route *air_route = map[index].air_routes_head;
-        unsigned char total_active = 0;
+        unsigned char air_routes_active = 0;
         while (air_route)
         {
             average += air_route->cost;
@@ -699,18 +720,27 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
                 found = air_route;
             }
             air_route = air_route->next;
-            total_active += 1;
+            air_routes_active += 1;
         }
         if (found == NULL)
         {
             // aggiungo air_route
-            if (total_active == 5)
+            if (air_routes_active == 5)
                 return (STATUS)4;
             /*
             map[index].air_routes[air_routes_active].cost = average / (1 + air_routes_active);
             map[index].air_routes[air_routes_active].hexagon_index = target_index;
             map[index].air_routes_active++;
             */
+            air_route = map[index].air_routes_head;
+            while (air_route->next)
+            {
+                air_route = air_route->next;
+            }
+            air_route->next = (Air_route *)malloc(sizeof(Air_route));
+            air_route->next->cost = average / (1 + air_routes_active);
+            air_route->next->hexagon_index = target_index;
+            air_route->next->next = NULL;
         }
         else
         {
@@ -718,11 +748,13 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
             /*if (found != air_routes_active)
                 air_route_swap(&map[index].air_routes[found], &map[index].air_routes[air_routes_active - 1]);
             map[index].air_routes_active--;*/
-            if(found == map[index].air_routes_head)
+            if (found == map[index].air_routes_head)
             {
                 // cambiare la testa della lista al suo successore
                 map[index].air_routes_head = map[index].air_routes_head->next;
-            }else{
+            }
+            else
+            {
                 air_route = map[index].air_routes_head;
                 while (air_route->next != found)
                 {
@@ -741,10 +773,10 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
         map[index].air_routes[air_routes_active].cost = map[index].cost;
         map[index].air_routes_active = 1;
         */
-       map[index].air_routes_head = (Air_route*)malloc(sizeof(Air_route));
-       map[index].air_routes_head->hexagon_index = target_index;
-       map[index].air_routes_head->cost = map[index].cost;
-       map[index].air_routes_head->next = NULL;
+        map[index].air_routes_head = (Air_route *)malloc(sizeof(Air_route));
+        map[index].air_routes_head->hexagon_index = target_index;
+        map[index].air_routes_head->cost = map[index].cost;
+        map[index].air_routes_head->next = NULL;
     }
 
     return (STATUS)0; // OK
@@ -827,10 +859,10 @@ int travel_cost(int xp, int yp, int xd, int yd)
             }
 
             // air routes
-            if (map[current_hexagon_index].air_routes_active)
+            if (map[current_hexagon_index].air_routes_head)
             {
                 // itera le rotte aeree
-                for (int i = 0; i < map[current_hexagon_index].air_routes_active; i++)
+                /*for (int i = 0; i < map[current_hexagon_index].air_routes_active; i++)
                 {
                     int air_route_index_destination = map[current_hexagon_index].air_routes[i].hexagon_index;
                     int air_route_cost = map[current_hexagon_index].air_routes[i].cost;
@@ -845,6 +877,24 @@ int travel_cost(int xp, int yp, int xd, int yd)
                         qn.hexagon_index = air_route_index_destination;
                         heap_push(&min_heap_queue, qn);
                     }
+                }*/
+                Air_route *air_route = map[current_hexagon_index].air_routes_head;
+                while (air_route)
+                {
+                    int air_route_index_destination = air_route->hexagon_index;
+                    //int air_route_cost = air_route->cost;
+                    // il costo sarà dato dal costo della rotta aerea + la distanza del nodo di partenza dalla sorgente
+                    int newdistance = air_route->cost + distance_array[current_hexagon_index];
+                    if (newdistance < distance_array[air_route_index_destination])
+                    {
+                        // la distanza nuova proposta è minore di quella attuale
+                        distance_array[air_route_index_destination] = newdistance;
+                        Heap_node qn;
+                        qn.min_heap_parameter = newdistance;
+                        qn.hexagon_index = air_route_index_destination;
+                        heap_push(&min_heap_queue, qn);
+                    }
+                    air_route = air_route->next;
                 }
             }
         }
@@ -940,7 +990,7 @@ int main(int argc, char **argv)
 
     // free memory
     if (map)
-        free(map);
+        free_map();
     heap_empty(&min_heap_queue);
     if (min_heap_queue.min_heap)
         free(min_heap_queue.min_heap);
