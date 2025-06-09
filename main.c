@@ -5,14 +5,14 @@
 #include <math.h>
 
 // helper macros
-#define _DEBUG
+//#define _DEBUG
 
 #ifdef _DEBUG
 
-#define TRACE(x) printf("%s : %llu", #x, x)
-#define HEXTRACE(x) printf("%s : %x", #x, x)
-#define STRTRACE(x) printf("%s : %s", #x, x)
-#define STRINFO(x) printf("%s[%d] : %s", #x, x, strlen(x) + 1)
+#define TRACE(x) printf("%s : %llu\n", #x, x)
+#define HEXTRACE(x) printf("%s : %x\n", #x, x)
+#define STRTRACE(x) printf("%s : %s\n", #x, x)
+#define STRINFO(x) printf("%s[%d] : %s\n", #x, x, strlen(x) + 1)
 #define DEBUGPRINT(msg) printf("[DEBUG] : %s [END]\n", msg);
 #define STAMPPRINT(n, msg) printf("[DEBUG] riga [%d] : %s [END]\n", n, msg)
 
@@ -167,7 +167,7 @@ void hashmap_init(Hashmap *h)
         hashmap_empty(h);
         free(h->map);
     }
-    h->capacity = 577;
+    h->capacity = 101;
     h->size = 0;
     h->map = (Hashmap_node **)calloc(h->capacity, sizeof(Hashmap_node *));
 }
@@ -550,6 +550,7 @@ STATUS change_cost(int x, int y, int v, int raggio)
     if (raggio <= 0)
         return (STATUS)4;
 
+    TRACE(cache.size);
     // invalidate cache
     hashmap_empty(&cache);
 
@@ -885,6 +886,8 @@ int main(int argc, char **argv)
 
     DEBUGPRINT("Cleaning up...");
     TRACE(min_heap_queue.capacity);
+    TRACE(cache.size);
+
     // closing streams
     if (istream != stdin)
         fclose(istream);
