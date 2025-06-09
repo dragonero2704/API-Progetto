@@ -5,7 +5,7 @@
 #include <math.h>
 
 // helper macros
-//#define _DEBUG
+// #define _DEBUG
 
 #ifdef _DEBUG
 
@@ -79,7 +79,7 @@ typedef struct
     // hexagon cost
     int cost;
     Air_route air_routes[5];
-    int air_routes_active;
+    unsigned char air_routes_active;
 } Hexagon;
 
 /* ============== GLOBALI ============== */
@@ -87,18 +87,18 @@ Hexagon *map = NULL;
 int MAPSIZE = 0;
 int MAPX = 0;
 int MAPY = 0;
-int adiacenze[2][6][2] = {
+const int adiacenze[2][6][2] = {
     {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {-1, 1}, {-1, -1}},
     {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, -1}, {1, 1}}};
 Min_heap min_heap_queue;
 Hashmap cache;
+int *distance_array = NULL;
 
 /* ============ FINE GLOBALI ============ */
 
 // =========================================================== FUNCTIONS =========================================================== //
-int toIndex(int x, int y);
 
-void air_route_swap(Air_route *a, Air_route *b)
+static inline void air_route_swap(Air_route *a, Air_route *b)
 {
     Air_route tmp;
     tmp.cost = a->cost;
@@ -112,7 +112,7 @@ void air_route_swap(Air_route *a, Air_route *b)
 }
 // Szudzik pair hashing
 // articolo qui: https://sair.synerise.com/efficient-integer-pairs-hashing/
-unsigned int Szudzik(unsigned int x, unsigned int y)
+static inline unsigned int Szudzik(unsigned int x, unsigned int y)
 {
     if (x > y)
     {
@@ -261,38 +261,39 @@ int hashmap_search(Hashmap *h, unsigned int key)
 }
 // ============================================================= HEAP ============================================================= //
 // heap utilities
-int heap_parent(int index)
+static inline int heap_parent(int index)
 {
     return (index - 1) / 2;
 }
 
-int heap_left(int index)
+static inline int heap_left(int index)
 {
     return (index * 2) + 1;
 }
 
-int heap_right(int index)
+static inline int heap_right(int index)
 {
     return (index * 2) + 2;
 }
 /**
  * @brief raddoppia la capacità dell'heap riallocando q->min_heap_queue in un nuovo array
- * 
+ *
  * @param q min_heap da ingrandire
  */
-void heap_grow(Min_heap* q)
+
+void heap_grow(Min_heap *q)
 {
     // allocazione di memoria per nuovo array, uso calloc per settare tutti i byte a 0
-    Heap_node* newarr = (Heap_node*)calloc(q->capacity * 2, sizeof(Heap_node));
+    Heap_node *newarr = (Heap_node *)calloc(q->capacity * 2, sizeof(Heap_node));
     // copia vecchio array nel nuovo array
-    memcpy(newarr, q->min_heap, sizeof(Heap_node)*q->capacity);
+    memcpy(newarr, q->min_heap, sizeof(Heap_node) * q->capacity);
     free(q->min_heap);
     q->min_heap = newarr;
     q->capacity = q->capacity * 2;
 }
 
 // heap functions
-void heap_swap(Heap_node *a, Heap_node *b)
+static inline void heap_swap(Heap_node *a, Heap_node *b)
 {
     Heap_node tmp;
     tmp.hexagon_index = a->hexagon_index;
@@ -318,13 +319,8 @@ void heap_init(Min_heap *q, size_t queue_max_lenght)
     q->min_heap = (Heap_node *)calloc(queue_max_lenght, sizeof(Heap_node));
 
     q->size = 0;
-    size_t pow2 = 1; // 2^0
     // la capacità dell'heap deve essere la potenza di due maggiore più vicina a queue_max_length
-    while(pow2 < queue_max_lenght)
-    {
-        pow2*=2;
-    }
-    q->capacity = pow2;
+    q->capacity = queue_max_lenght;
 }
 
 /**
@@ -335,9 +331,6 @@ void heap_init(Min_heap *q, size_t queue_max_lenght)
 void heap_empty(Min_heap *q)
 {
     q->size = 0;
-    // if (q->min_heap)
-    //     free(q->min_heap);
-    // q->min_heap = (Heap_node *)calloc(q->capacity, sizeof(Heap_node));
 }
 
 /**
@@ -394,9 +387,9 @@ void heap_heapify_top_down(Min_heap *q, int index)
 }
 /**
  * @brief inserisce un nuovo elemento nell'heap
- * 
- * @param q 
- * @param node 
+ *
+ * @param q
+ * @param node
  */
 void heap_push(Min_heap *q, Heap_node node)
 {
@@ -404,7 +397,8 @@ void heap_push(Min_heap *q, Heap_node node)
     q->min_heap[q->size].min_heap_parameter = node.min_heap_parameter;
 
     q->size++;
-    if(q->size == q->capacity) heap_grow(q);
+    if (q->size == q->capacity)
+        heap_grow(q);
     heap_heapify_bottom_up(q, q->size - 1);
 }
 
@@ -435,7 +429,7 @@ Heap_node heap_pop(Min_heap *q)
  * @param y ordinata
  * @return 0 on success, !=0 altrimenti
  */
-STATUS inBounds(int x, int y)
+static inline STATUS inBounds(int x, int y)
 {
     return (STATUS)(x >= 0 && y >= 0 && x < MAPX && y < MAPY);
 }
@@ -448,19 +442,19 @@ STATUS inBounds(int x, int y)
  * @param index corrispondente all'interno dell'array linearizzato
  * @return status 0 = OK, error altrimenti
  */
-int toIndex(int x, int y)
+static inline int toIndex(int x, int y)
 {
     return y * MAPX + x;
 }
 
 /**
  * @brief a parite da un indice VALIDO, calcola le coordinate (x,y)
- * 
+ *
  * @param index indice dell'array
  * @param x ascissa
  * @param y ordinata
  */
-void toCoord(int index, int *x, int *y)
+static inline void toCoord(int index, int *x, int *y)
 {
     *x = index % MAPX;
     *y = index / MAPX;
@@ -498,6 +492,9 @@ STATUS init(int x, int y)
     // init data structures per travel_cost e change cost
     heap_init(&min_heap_queue, MAPSIZE);
     hashmap_empty(&cache);
+    if (distance_array)
+        free(distance_array);
+    distance_array = (int *)malloc(sizeof(int) * MAPSIZE);
     return (STATUS)0; // OK
 }
 /**
@@ -506,16 +503,16 @@ STATUS init(int x, int y)
  * un risultato differente (e errato)
  * \n
  * fraction = (float)(raggio - distance) / raggio;
- * \n 
+ * \n
  * newcost = original_cost + (int) floorf(v * fraction);
- * 
+ *
  * @param original_cost costo originario
  * @param v             fattore da scalare v passato nella change_cost
  * @param raggio        raggio fornito dalla change_cost
  * @param distance      distanza attuale
- * @return newcost 
+ * @return newcost
  */
-int calculate_new_cost(int original_cost, int v, int raggio, int distance)
+static inline int calculate_new_cost(int original_cost, int v, int raggio, int distance)
 {
     // =====================================================
     float fraction = (float)(raggio - distance) / raggio;
@@ -569,7 +566,6 @@ STATUS change_cost(int x, int y, int v, int raggio)
 
     // allocazione memoria dinamica per vettore distanze
     // TODO: dichiarare variabile globale da azzerare per change_cost e travel_cost
-    int *distance_array = (int *)malloc(MAPSIZE * sizeof(int));
     for (int i = 0; i < MAPSIZE; i++)
     {
         distance_array[i] = 0x7FFFFFFF; // set a INT_MAX che rappresenta infty
@@ -627,7 +623,6 @@ STATUS change_cost(int x, int y, int v, int raggio)
         }
     }
     // print_map(x, y, v, raggio);
-    free(distance_array);
     return (STATUS)0;
 }
 /**
@@ -734,7 +729,6 @@ int travel_cost(int xp, int yp, int xd, int yd)
     // valore nella cache non trovato, iniziare esplorazione mappa
     // svuota coda
     heap_empty(&min_heap_queue);
-    int *distance_array = (int *)malloc(MAPSIZE * sizeof(int));
     // set max distance
     for (int i = 0; i < MAPSIZE; i++)
     {
@@ -804,9 +798,6 @@ int travel_cost(int xp, int yp, int xd, int yd)
     }
     // RESULT:
     int result = distance_array[arrival];
-
-    free(distance_array);
-    distance_array = NULL;
     if (result == 0x7FFFFFFF)
         result = -1;
     hashmap_insert(&cache, Szudzik((unsigned int)departing, (unsigned int)arrival), result);
@@ -819,8 +810,8 @@ int main(int argc, char **argv)
     FILE *istream = stdin;
     FILE *ostream = stdout;
     // define I/O streams as file
-    //istream = fopen("./test/empty.txt", "r");
-    //ostream = fopen("output.txt", "w");
+    // istream = fopen("./test/empty.txt", "r");
+    // ostream = fopen("output.txt", "w");
 
     char buffer[BUFFER_SIZE];
     char *input = NULL;
@@ -896,19 +887,15 @@ int main(int argc, char **argv)
 
     // free memory
     if (map)
-    {
         free(map);
-    }
     heap_empty(&min_heap_queue);
     if (min_heap_queue.min_heap)
-    {
         free(min_heap_queue.min_heap);
-    }
     hashmap_empty(&cache);
     if (cache.map)
-    {
         free(cache.map);
-    }
+    if (distance_array)
+        free(distance_array);
 
     return 0;
 }
