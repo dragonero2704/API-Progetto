@@ -98,7 +98,25 @@ int *distance_array = NULL;
 /* ============ FINE GLOBALI ============ */
 
 // =========================================================== FUNCTIONS =========================================================== //
-
+/**
+ * @brief inizializza una air_route
+ * 
+ * @param to_init puntatore Air_route* alla Air_route da inizializzare
+ * @param cost costo di to_init
+ * @param hexagon_index esagono di arrivo della air_route
+ * @param next puntatore al successivo di to_init
+ * @return puntatore a air_route inizializzata
+ */
+static inline Air_route* air_route_init(Air_route* to_init, int cost, int hexagon_index, Air_route* next)
+{
+    if(!to_init) to_init = (Air_route*)malloc(sizeof(Air_route));
+    to_init->cost = cost;
+    to_init->hexagon_index = hexagon_index;
+    to_init->next = next;
+    return to_init;
+}
+/*
+usata nella precedente build con array al posto di liste per air_route
 static inline void air_route_swap(Air_route *a, Air_route *b)
 {
     Air_route tmp;
@@ -110,9 +128,16 @@ static inline void air_route_swap(Air_route *a, Air_route *b)
 
     b->cost = tmp.cost;
     b->hexagon_index = tmp.hexagon_index;
-}
-// Szudzik pair hashing
-// articolo qui: https://sair.synerise.com/efficient-integer-pairs-hashing/
+}*/
+
+/**
+ * @brief Szudzik pair hashing 
+ * articolo qui: https://sair.synerise.com/efficient-integer-pairs-hashing/
+ * 
+ * @param x primo numero della coppia
+ * @param y secondo numero della coppia
+ * @return unsigned int hashed
+ */
 static inline unsigned int Szudzik(unsigned int x, unsigned int y)
 {
     if (x > y)
@@ -128,6 +153,11 @@ static inline unsigned int Szudzik(unsigned int x, unsigned int y)
 }
 
 // hashmap functions
+/**
+ * @brief svuota l'hashmap
+ * 
+ * @param h puntatore alla hashmap
+ */
 void hashmap_empty(Hashmap *h)
 {
     if (!h->map)
@@ -153,7 +183,7 @@ void hashmap_empty(Hashmap *h)
     h->size = 0;
 }
 /**
- * @brief
+ * @brief inizializza l'hashmap
  *
  * @param h puntatore alla hashmap da inizializzare
  */
@@ -174,12 +204,25 @@ void hashmap_init(Hashmap *h)
 }
 
 // hashing con metodo della divisione
+/**
+ * @brief funzione di hash
+ * 
+ * @param h puntatore alla hashmap
+ * @param toHash input
+ * @return unsigned int 
+ */
 unsigned int hashing_function(Hashmap *h, unsigned int toHash)
 {
     unsigned int hashed = toHash % h->capacity;
     return hashed;
 }
-
+/**
+ * @brief inserisce un elemento nella hashmap
+ * 
+ * @param h puntatore alla hashmap
+ * @param key chiave da inserire
+ * @param value valore associato alla chiave
+ */
 void hashmap_insert(Hashmap *h, unsigned int key, int value)
 {
     // STAMPPRINT(COMMAND_NUMBER, "INSERTING ELEMENT IN CACHE");
@@ -203,7 +246,12 @@ void hashmap_insert(Hashmap *h, unsigned int key, int value)
     }
     h->size++;
 }
-
+/**
+ * @brief elimina una chiave e il suo valore associato
+ * 
+ * @param h puntatore alla hashmap
+ * @param key chiave da elimare
+ */
 void hashmap_delete(Hashmap *h, unsigned int key)
 {
     unsigned int digest = hashing_function(h, key);
@@ -216,7 +264,6 @@ void hashmap_delete(Hashmap *h, unsigned int key)
         if (curr->key == key)
         {
             // cancellare chiave: 2 casi
-
             // curr è la testa
             if (!prev)
             {
@@ -276,12 +323,12 @@ static inline int heap_right(int index)
 {
     return (index * 2) + 2;
 }
+// NON IN USO
 /**
  * @brief raddoppia la capacità dell'heap riallocando q->min_heap_queue in un nuovo array
  *
  * @param q min_heap da ingrandire
  */
-
 void heap_grow(Min_heap *q)
 {
     // allocazione di memoria per nuovo array, uso calloc per settare tutti i byte a 0
@@ -294,6 +341,12 @@ void heap_grow(Min_heap *q)
 }
 
 // heap functions
+/**
+ * @brief scambia due elementi nell'heap
+ * 
+ * @param a puntatore Heap_node*
+ * @param b puntatore Heap_node*
+ */
 static inline void heap_swap(Heap_node *a, Heap_node *b)
 {
     Heap_node tmp;
@@ -309,25 +362,25 @@ static inline void heap_swap(Heap_node *a, Heap_node *b)
 /**
  * @brief inizializza l'heap inizializzando size a 0, capacity e allocando l'array
  *
- * @param q
- * @param queue_max_lenght
+ * @param q puntatore Min_heap* a heap da inizializzare
+ * @param capacity capacità dell'heap
  */
-void heap_init(Min_heap *q, size_t queue_max_lenght)
+void heap_init(Min_heap *q, size_t capacity)
 {
     if (q->min_heap)
         free(q->min_heap);
 
-    q->min_heap = (Heap_node *)calloc(queue_max_lenght, sizeof(Heap_node));
+    q->min_heap = (Heap_node *)calloc(capacity, sizeof(Heap_node));
 
     q->size = 0;
     // la capacità dell'heap deve essere la potenza di due maggiore più vicina a queue_max_length
-    q->capacity = queue_max_lenght;
+    q->capacity = capacity;
 }
 
 /**
  * @brief setta size a 0
  *
- * @param q
+ * @param q puntatore Min_heap* a heap da svuotare
  */
 void heap_empty(Min_heap *q)
 {
@@ -339,8 +392,8 @@ void heap_empty(Min_heap *q)
  * la proprietà del min-heap. Questa funzione viene chiamata quando viene aggiunto un nuovo elemento allo heap
  * che trovandosi in fondo all'array deve magari essere scambiato con l'elemento padre per metterlo alla radice
  *
- * @param q
- * @param index
+ * @param q puntatore Min_heap* a heap
+ * @param index indice
  */
 void heap_heapify_bottom_up(Min_heap *q, int index)
 {
@@ -461,12 +514,17 @@ static inline void toCoord(int index, int *x, int *y)
     *y = index / MAPX;
 }
 
+/**
+ * @brief chiama free() sulla mappa degli esagoni Hexagon *map liberando prima le air_route di un esagono se presenti
+ * 
+ */
 static inline void free_map()
 {
     for (int i = 0; i < MAPSIZE; i++)
     {
         if (map[i].air_routes_head)
         {
+            // se sono presenti air_route, deallocarle
             Air_route *tmp = map[i].air_routes_head;
             Air_route *tmp_next = NULL;
             while (tmp)
@@ -489,7 +547,6 @@ static inline void free_map()
  * @param y numero di righe
  * @return STATUS 0 on success
  */
-
 STATUS init(int x, int y)
 {
     if (x <= 0 || y <= 0)
@@ -520,15 +577,16 @@ STATUS init(int x, int y)
     distance_array = (int *)malloc(sizeof(int) * MAPSIZE);
     return (STATUS)0; // OK
 }
+
 /**
  * @brief funzione di costo calcolata per l'esagono e le rotte aeree
- * FONDAMENTALE il float, senza il quale questa funzione darebbe
+ * \n
+ * FONDAMENTALE l'uso del float, senza il quale questa funzione darebbe
  * un risultato differente (e errato)
  * \n
  * fraction = (float)(raggio - distance) / raggio;
  * \n
  * newcost = original_cost + (int) floorf(v * fraction);
- *
  * @param original_cost costo originario
  * @param v             fattore da scalare v passato nella change_cost
  * @param raggio        raggio fornito dalla change_cost
@@ -595,8 +653,6 @@ STATUS change_cost(int x, int y, int v, int raggio)
     if (raggio == 1)
         return (STATUS)0;
 
-    // allocazione memoria dinamica per vettore distanze
-    // TODO: dichiarare variabile globale da azzerare per change_cost e travel_cost
     for (int i = 0; i < MAPSIZE; i++)
     {
         distance_array[i] = 0x7FFFFFFF; // set a INT_MAX che rappresenta infty
@@ -605,6 +661,7 @@ STATUS change_cost(int x, int y, int v, int raggio)
 
     // svuota l'heap
     heap_empty(&min_heap_queue);
+    // inserire esagono di partenza all'interno dell'heap
     Heap_node heap_data;
     heap_data.hexagon_index = origin;
     heap_data.min_heap_parameter = 0;
@@ -676,10 +733,10 @@ STATUS change_cost(int x, int y, int v, int raggio)
  */
 STATUS toggle_air_route(int x1, int y1, int x2, int y2)
 {
-    // check if map exists
+    // controlla se map esiste
     if (!map)
         return (STATUS)1;
-    // check if both exagons exist
+    // controlla se entrambi gli esagoni sono validi
     if (!inBounds(x1, y1))
         return (STATUS)2;
     if (!inBounds(x2, y2))
@@ -692,8 +749,7 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
     // invalidate cache
     hashmap_empty(&cache);
 
-    // int air_routes_active = map[index].air_routes_active;
-    // if (air_routes_active)
+    // controlla se sono già presenti air route
     if (map[index].air_routes_head)
     {
         Air_route *found = NULL;
@@ -737,20 +793,18 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
             {
                 air_route = air_route->next;
             }
-            air_route->next = (Air_route *)malloc(sizeof(Air_route));
-            air_route->next->cost = average / (1 + air_routes_active);
-            air_route->next->hexagon_index = target_index;
-            air_route->next->next = NULL;
+            air_route->next = air_route_init(NULL,  average / (1 + air_routes_active), target_index, NULL);
         }
         else
         {
             // elimina route
             /*if (found != air_routes_active)
                 air_route_swap(&map[index].air_routes[found], &map[index].air_routes[air_routes_active - 1]);
-            map[index].air_routes_active--;*/
+            map[index].air_routes_active--;
+            */
             if (found == map[index].air_routes_head)
             {
-                // cambiare la testa della lista al suo successore
+                // cambiare la testa della lista
                 map[index].air_routes_head = map[index].air_routes_head->next;
             }
             else
@@ -768,15 +822,7 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
     else
     {
         // aggiungi prima nuova air route
-        /*
-        map[index].air_routes[air_routes_active].hexagon_index = target_index;
-        map[index].air_routes[air_routes_active].cost = map[index].cost;
-        map[index].air_routes_active = 1;
-        */
-        map[index].air_routes_head = (Air_route *)malloc(sizeof(Air_route));
-        map[index].air_routes_head->hexagon_index = target_index;
-        map[index].air_routes_head->cost = map[index].cost;
-        map[index].air_routes_head->next = NULL;
+        map[index].air_routes_head = air_route_init(NULL, map[index].cost, target_index, NULL);    
     }
 
     return (STATUS)0; // OK
@@ -820,12 +866,12 @@ int travel_cost(int xp, int yp, int xd, int yd)
         distance_array[i] = 0x7FFFFFFF;
     }
     distance_array[departing] = 0;
+    // inserire esagono d'origine nella coda
     Heap_node heap_data;
     heap_data.hexagon_index = departing;
     heap_data.min_heap_parameter = 0;
     heap_push(&min_heap_queue, heap_data);
 
-    // l'errore è qui
     int current_hexagon_index = 0;
     while (min_heap_queue.size)
     {
@@ -882,7 +928,6 @@ int travel_cost(int xp, int yp, int xd, int yd)
                 while (air_route)
                 {
                     int air_route_index_destination = air_route->hexagon_index;
-                    //int air_route_cost = air_route->cost;
                     // il costo sarà dato dal costo della rotta aerea + la distanza del nodo di partenza dalla sorgente
                     int newdistance = air_route->cost + distance_array[current_hexagon_index];
                     if (newdistance < distance_array[air_route_index_destination])
