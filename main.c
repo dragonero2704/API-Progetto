@@ -88,7 +88,7 @@ Hexagon *map = NULL;
 int MAPSIZE = 0;
 int MAPX = 0;
 int MAPY = 0;
-const int adiacenze[2][6][2] = {
+const char adiacenze[2][6][2] = {
     {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {-1, 1}, {-1, -1}},
     {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, -1}, {1, 1}}};
 Min_heap min_heap_queue;
@@ -187,7 +187,7 @@ void hashmap_empty(Hashmap *h)
  *
  * @param h puntatore alla hashmap da inizializzare
  */
-void hashmap_init(Hashmap *h)
+void hashmap_init(Hashmap *h, size_t capacity)
 {
     /**
      * Un numero primo per diminuire conflitti
@@ -198,12 +198,12 @@ void hashmap_init(Hashmap *h)
         hashmap_empty(h);
         free(h->map);
     }
-    h->capacity = 101;
+    h->capacity = capacity;
     h->size = 0;
     h->map = (Hashmap_node **)calloc(h->capacity, sizeof(Hashmap_node *));
 }
 
-// hashing con metodo della divisione
+// hashing con metodo del resto
 /**
  * @brief funzione di hash
  * 
@@ -636,12 +636,6 @@ STATUS change_cost(int x, int y, int v, int raggio)
     int origin = toIndex(x, y);
     map[origin].cost = calculate_new_cost(map[origin].cost, v, raggio, 0);
     // rotte aeree dell'origine
-    /*
-    for (int i = 0; i < map[origin].air_routes_active; i++)
-    {
-        map[origin].air_routes[i].cost = calculate_new_cost(map[origin].air_routes[i].cost, v, raggio, 0);
-    }
-    */
     Air_route *air_route = map[origin].air_routes_head;
     while (air_route)
     {
@@ -704,12 +698,6 @@ STATUS change_cost(int x, int y, int v, int raggio)
             // aggiornare esagono i
             map[i].cost = calculate_new_cost(map[i].cost, v, raggio, distance_array[i]);
             // aggiornare rotte aeree
-            /*
-            for (int j = 0; j < map[i].air_routes_active; j++)
-            {
-                map[i].air_routes[j].cost = calculate_new_cost(map[i].cost, v, raggio, distance_array[i]);
-            }
-            */
             air_route = map[i].air_routes_head;
             while (air_route)
             {
@@ -755,17 +743,6 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
         Air_route *found = NULL;
         int average = map[index].cost;
         // prima scorrere le air_route
-        /*
-        for (int i = 0; i < air_routes_active; i++)
-        {
-            average += map[index].air_routes[i].cost;
-            int hexagon_index = map[index].air_routes[i].hexagon_index;
-            if (hexagon_index == target_index)
-            {
-                found = i;
-                break;
-            }
-        }*/
         Air_route *air_route = map[index].air_routes_head;
         unsigned char air_routes_active = 0;
         while (air_route)
@@ -783,11 +760,6 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
             // aggiungo air_route
             if (air_routes_active == 5)
                 return (STATUS)4;
-            /*
-            map[index].air_routes[air_routes_active].cost = average / (1 + air_routes_active);
-            map[index].air_routes[air_routes_active].hexagon_index = target_index;
-            map[index].air_routes_active++;
-            */
             air_route = map[index].air_routes_head;
             while (air_route->next)
             {
@@ -798,10 +770,6 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
         else
         {
             // elimina route
-            /*if (found != air_routes_active)
-                air_route_swap(&map[index].air_routes[found], &map[index].air_routes[air_routes_active - 1]);
-            map[index].air_routes_active--;
-            */
             if (found == map[index].air_routes_head)
             {
                 // cambiare la testa della lista
@@ -908,22 +876,6 @@ int travel_cost(int xp, int yp, int xd, int yd)
             if (map[current_hexagon_index].air_routes_head)
             {
                 // itera le rotte aeree
-                /*for (int i = 0; i < map[current_hexagon_index].air_routes_active; i++)
-                {
-                    int air_route_index_destination = map[current_hexagon_index].air_routes[i].hexagon_index;
-                    int air_route_cost = map[current_hexagon_index].air_routes[i].cost;
-                    // il costo sarà dato dal costo della rotta aerea + la distanza del nodo di partenza dalla sorgente
-                    int newdistance = air_route_cost + distance_array[current_hexagon_index];
-                    if (newdistance < distance_array[air_route_index_destination])
-                    {
-                        // la distanza nuova proposta è minore di quella attuale
-                        distance_array[air_route_index_destination] = newdistance;
-                        Heap_node qn;
-                        qn.min_heap_parameter = newdistance;
-                        qn.hexagon_index = air_route_index_destination;
-                        heap_push(&min_heap_queue, qn);
-                    }
-                }*/
                 Air_route *air_route = map[current_hexagon_index].air_routes_head;
                 while (air_route)
                 {
@@ -967,7 +919,7 @@ int main(int argc, char **argv)
     char *parameters = NULL;
     int p1, p2, p3, p4;
     // init cache
-    hashmap_init(&cache);
+    hashmap_init(&cache, 101);
     // input loop
     do
     {
