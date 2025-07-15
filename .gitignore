@@ -1,5 +1,7 @@
 # ignora eseguibili
 *.exe
 .vscode
-Makefile
+build
+
+input.txt
 output.txt
