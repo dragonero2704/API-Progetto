@@ -5,6 +5,10 @@
         "initializer_list": "c",
         "type_traits": "c",
         "xstring": "c",
-        "xutility": "c"
+        "xutility": "c",
+        "xiosbase": "cpp",
+        "istream": "cpp",
+        "utility": "cpp",
+        "fstream": "cpp"
     }
 }
