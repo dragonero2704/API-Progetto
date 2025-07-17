@@ -32,7 +32,7 @@ typedef struct Hexagon
 ```
 
 Dato che è possibile usare un sistema di coordinate cartesiano per descrivere la mappa degli esagoni. è possibile descrivere le adiacenze (escludendo le rotte aeree) come vettore bidimensioale, differenza tra le coordinate cartesiane di partenza e di arrivo. Ad esempio, l'adiacenza $\begin{pmatrix}0 \\\ 1\end{pmatrix}$ rappresenta l'esagono che si trova una riga sopra l'esagono considerato (dalla [specifica](specifiche.pdf) l'origine del piano cartesiano è posizionato in basso a sinistra rispetto alla mappa).
-Tutti i nodi hanno 6 adiacenze (essendo esagoni), $4$ di queste sono comuni a tutti i nodi cioè $$\{ \begin{pmatrix}0 \\\ 1\end{pmatrix}, \begin{pmatrix}1 \\\ 0\end{pmatrix}, \begin{pmatrix}0 \\\ -1\end{pmatrix}, \begin{pmatrix}-1 \\\ 0\end{pmatrix}\}$$
+Tutti i nodi hanno 6 adiacenze (essendo esagoni), $4$ di queste sono comuni a tutti i nodi cioè $$`\{ \begin{pmatrix}0 \\\ 1\end{pmatrix}, \begin{pmatrix}1 \\\ 0\end{pmatrix}, \begin{pmatrix}0 \\\ -1\end{pmatrix}, \begin{pmatrix}-1 \\\ 0\end{pmatrix}\}`$$
 
 Le ultime $2$ adiacenze cambiano in funzione della posizione dell'esagono:
 - riga con ordinata **pari**: $`\set{\begin{pmatrix}-1 \\\ 1\end{pmatrix},\begin{pmatrix}-1 \\\ -1\end{pmatrix}}`$
@@ -53,6 +53,6 @@ Per trovare il percorso a costo minimo tra due esagoni possiamo utilizzare l'alg
 
 Per la funzione `change_cost` è possibile continuare ad applicare l'algoritmo di Dijistrika defeninendo la distanza di un nodo $n$ come numero di esagoni da attraversare per arrivare dal nodo di partenza al nodo $n$.
 
-La funzione `toggle_air_route` richiede di aggiungere (o rimuovere se già presente) una rotta aerea dall'esagono $\begin{pmatrix}x_p\\ y_p\end{pmatrix}$ all'esagono $\begin{pmatrix}x_d\\y_d\end{pmatrix}$. La logica è molto simile a quella di una funzione che inserisce (o rimuove) un elemento da una *single-linked list*.
+La funzione `toggle_air_route` richiede di aggiungere (o rimuovere se già presente) una rotta aerea dall'esagono $`\begin{pmatrix}x_p\\ y_p\end{pmatrix}`$ all'esagono $`\begin{pmatrix}x_d\\y_d\end{pmatrix}`$. La logica è molto simile a quella di una funzione che inserisce (o rimuove) un elemento da una *single-linked list*.
 
 Allo scopo di ottimizzare il programma viene suggerito l'uso di una cache per memorizzare i risultati delle chiamate a `travel_cost`, cache implementata tramite [hashmap](src/main.c#L54).
