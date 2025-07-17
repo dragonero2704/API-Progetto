@@ -31,7 +31,7 @@ typedef struct Hexagon
 } Hexagon;
 ```
 
-Dato che è possibile usare un sistema di coordinate cartesiano per descrivere la mappa degli esagoni. è possibile descrivere le adiacenze (escludendo le rotte aeree) come vettore bidimensioale, differenza tra le coordinate cartesiane di partenza e di arrivo. Ad esempio, l'adiacenza $\begin{pmatrix}0 \\\ 1\end{pmatrix}$ rappresenta l'esagono che si trova una riga sopra l'esagono considerato (dalla [specifica](specifiche.pdf) l'origine del piano cartesiano è posizionato in basso a sinistra rispetto alla mappa).
+Dato che è possibile usare un sistema di coordinate cartesiano per descrivere la mappa degli esagoni. è possibile descrivere le adiacenze (escludendo le rotte aeree) come vettore bidimensioale, differenza tra le coordinate cartesiane di partenza e di arrivo. Ad esempio, l'adiacenza $`\begin{pmatrix}0 \\\ 1\end{pmatrix}`$ rappresenta l'esagono che si trova una riga sopra l'esagono considerato (dalla [specifica](specifiche.pdf) l'origine del piano cartesiano è posizionato in basso a sinistra rispetto alla mappa).
 Tutti i nodi hanno 6 adiacenze (essendo esagoni), $4$ di queste sono comuni a tutti i nodi cioè 
 ```math 
 \{ \begin{pmatrix}0 \\\ 1\end{pmatrix}, \begin{pmatrix}1 \\\ 0\end{pmatrix}, \begin{pmatrix}0 \\\ -1\end{pmatrix}, \begin{pmatrix}-1 \\\ 0\end{pmatrix}\}
