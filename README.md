@@ -55,4 +55,4 @@ Per la funzione `change_cost` è possibile continuare ad applicare l'algoritmo d
 
 La funzione `toggle_air_route` richiede di aggiungere (o rimuovere se già presente) una rotta aerea dall'esagono $\begin{pmatrix}x_p\\ y_p\end{pmatrix}$ all'esagono $\begin{pmatrix}x_d\\y_d\end{pmatrix}$. La logica è molto simile a quella di una funzione che inserisce (o rimuove) un elemento da una *single-linked list*.
 
-Allo scopo di ottimizzare il programma viene suggerito l'uso di una cache per memorizzare i risultati delle chiamate a `travel_cost`, cache implementata tramite (hashmap)[src/main.c#54].
+Allo scopo di ottimizzare il programma viene suggerito l'uso di una cache per memorizzare i risultati delle chiamate a `travel_cost`, cache implementata tramite (hashmap)[src/main.c].
