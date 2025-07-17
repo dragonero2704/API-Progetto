@@ -75,7 +75,7 @@ typedef struct Air_route
 } Air_route;
 
 // Hexagon type definition
-typedef struct
+typedef struct Hexagon
 {
     // hexagon cost
     int cost;
