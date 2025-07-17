@@ -1,3 +1,4 @@
+\usepackage{amsmath}
 # Prova finale API 2024-2025
 Progetto finale del corso Algoritmi e Principi di Informatica (API) del Politecnico di Milano A.A. 2024-2025
 
