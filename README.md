@@ -9,7 +9,7 @@ La [[specifiche.pdf|specifica]] del progetto richiede di progettare e scrivere u
 - `travel_cost <xp> <yp> <xd> <yd>`
 
 e relativi parametri, modifichi una mappa formata da esagoni, cambiandone i costi di attraversamento e trovando il percorso migliore, cioè a costo **minimo**, che colleghi un esagono $A$ a un esagono $B$.
-Al fine di ottimizzare il programma, nella (specifica)[specifica.pdf] viene dichiarato che la funzione di travel_cost viene chiamata molto più spesso delle altre.
+Al fine di ottimizzare il programma, nella (specifica)[specifiche.pdf] viene dichiarato che la funzione di travel_cost viene chiamata molto più spesso delle altre.
 
 ## Implementazione
 La mappa ha $x$ "colonne" e $y$ "righe", ciò rende possibile l'utilizzo di un sistema di coordinate cartesiane per identificare univocamente gli esagoni che compongono la mappa. Inoltre si nota che conviene rappresentare la mappa (che è un grafo) sotto forma di matrice di adiacenza, in quanto gli esagoni sono sempre connessi agli esagoni direttamente adiacenti. Inoltre gli esagoni hanno disposizione al massimo $5$ "rotte aeree", cioè $5$ collegamenti a esagoni non adiacenti, rappresentati come archi orientati dall'esagono di partenza a quello di arrivo.
@@ -31,7 +31,7 @@ typedef struct Hexagon
 } Hexagon;
 ```
 
-Dato che è possibile usare un sistema di coordinate cartesiano per descrivere la mappa degli esagoni. è possibile descrivere le adiacenze (escludendo le rotte aeree) come vettore bidimensioale, differenza tra le coordinate cartesiane di partenza e di arrivo. Ad esempio, l'adiacenza $\begin{pmatrix}0 \\\ 1\end{pmatrix}$ rappresenta l'esagono che si trova una riga sopra l'esagono considerato (dalla (specifica)[specifica.pdf] l'origine del piano cartesiano è posizionato in basso a sinistra rispetto alla mappa).
+Dato che è possibile usare un sistema di coordinate cartesiano per descrivere la mappa degli esagoni. è possibile descrivere le adiacenze (escludendo le rotte aeree) come vettore bidimensioale, differenza tra le coordinate cartesiane di partenza e di arrivo. Ad esempio, l'adiacenza $\begin{pmatrix}0 \\\ 1\end{pmatrix}$ rappresenta l'esagono che si trova una riga sopra l'esagono considerato (dalla (specifica)[specifiche.pdf] l'origine del piano cartesiano è posizionato in basso a sinistra rispetto alla mappa).
 Tutti i nodi hanno 6 adiacenze (essendo esagoni), $4$ di queste sono comuni a tutti i nodi cioè $$\{ \begin{pmatrix}0 \\\ 1\end{pmatrix}, \begin{pmatrix}1 \\\ 0\end{pmatrix}, \begin{pmatrix}0 \\\ -1\end{pmatrix}, \begin{pmatrix}-1 \\\ 0\end{pmatrix}\}$$
 
 Le ultime $2$ adiacenze cambiano in funzione della posizione dell'esagono:
@@ -49,7 +49,7 @@ const char adiacenze[2][6][2] = {
 (P.S.) è anche possibile utilizzare un solo vettore di adiacenze e moltiplicare per un fattore di $-1$ quando si esamina un esagono su riga dispari, risparmiando $12$ Byte.
 
 ---
-Per trovare il percorso a costo minimo tra due esagoni possiamo utilizzare l'algoritmo di Dijistrika, in quanto la (specifica)[specifica.pdf] esclude costi negativi. L'algoritmo necessita di una *priority queue* per ordinare i vertici da visitare in funzione della distanza dal nodo di partenza. Questo comportamento è ottenibile tramite un (min_heap)[src/main.c#L40].
+Per trovare il percorso a costo minimo tra due esagoni possiamo utilizzare l'algoritmo di Dijistrika, in quanto la (specifica)[specifiche.pdf] esclude costi negativi. L'algoritmo necessita di una *priority queue* per ordinare i vertici da visitare in funzione della distanza dal nodo di partenza. Questo comportamento è ottenibile tramite un (min_heap)[src/main.c#L40].
 
 Per la funzione `change_cost` è possibile continuare ad applicare l'algoritmo di Dijistrika defeninendo la distanza di un nodo $n$ come numero di esagoni da attraversare per arrivare dal nodo di partenza al nodo $n$.
 
