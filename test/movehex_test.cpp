@@ -9,7 +9,7 @@ typedef char STATUS;
 
 int test(std::string input, std::string output)
 {
-    const std::string command = "..\\movhex.exe < " + input + " > output.txt";
+    const std::string command = "..\\movehex.exe < " + input + " > output.txt";
     // std::cout<<command<<std::endl;
     int ex_res = std::system(command.c_str());
     if (ex_res)
