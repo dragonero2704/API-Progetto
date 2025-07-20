@@ -5,11 +5,17 @@
 
 #define BLOCKSIZE 4096
 
+#if defined(_WIN32) || defined(_WIN64)
+#define EXECUTABLENAME "..\\movehex.exe < "
+#else
+#define EXECUTABLENAME "../movehex < "
+#endif
+
 typedef char STATUS;
 
 int test(std::string input, std::string output)
 {
-    const std::string command = "..\\movehex.exe < " + input + " > output.txt";
+    const std::string command = EXECUTABLENAME + input + " > output.txt";
     // std::cout<<command<<std::endl;
     int ex_res = std::system(command.c_str());
     if (ex_res)
@@ -51,7 +57,11 @@ int test(std::string input, std::string output)
 
 int main(int argc, char **argv)
 {
-    assert(argc == 4);
+    if(argc < 3)
+    {
+        std::cerr << "Usage: " << argv[0] << " <input_file> <output_file>" << std::endl;
+        return -2;
+    }
     int result = test(std::string(argv[1]), std::string(argv[2]));
     return result;
 }
