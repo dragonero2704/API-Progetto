@@ -12,11 +12,7 @@ add_executable(
     src/main.c 
 )
 
-set(BUILD_FLAGS -O2 -DEVAL -std=gnu11 -Wall -Werror -pipe -static -s -lm -g3)
-
-target_compile_options(
-    movehex PRIVATE ${BUILD_FLAGS}
-)
+set(CMAKE_C_COMPILE_FEATURES "-O2 -DEVAL -std=gnu11 -Wall -Werror -pipe -static -s -lm -g3")
 
 add_subdirectory(test)
 

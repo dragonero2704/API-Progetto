@@ -46,7 +46,7 @@ typedef struct Heap_node
 
 typedef struct Min_heap
 {
-    Heap_node *min_heap;
+    Heap_node *data;
     size_t size;
     size_t capacity;
 } Min_heap;
@@ -100,40 +100,27 @@ int *distance_array = NULL;
 // =========================================================== FUNCTIONS =========================================================== //
 /**
  * @brief inizializza una air_route
- * 
+ *
  * @param to_init puntatore Air_route* alla Air_route da inizializzare
  * @param cost costo di to_init
  * @param hexagon_index esagono di arrivo della air_route
  * @param next puntatore al successivo di to_init
  * @return puntatore a air_route inizializzata
  */
-static inline Air_route* air_route_init(Air_route* to_init, int cost, int hexagon_index, Air_route* next)
+static inline Air_route *air_route_init(Air_route *to_init, int cost, int hexagon_index, Air_route *next)
 {
-    if(!to_init) to_init = (Air_route*)malloc(sizeof(Air_route));
+    if (!to_init)
+        to_init = (Air_route *)malloc(sizeof(Air_route));
     to_init->cost = cost;
     to_init->hexagon_index = hexagon_index;
     to_init->next = next;
     return to_init;
 }
-/*
-usata nella precedente build con array al posto di liste per air_route
-static inline void air_route_swap(Air_route *a, Air_route *b)
-{
-    Air_route tmp;
-    tmp.cost = a->cost;
-    tmp.hexagon_index = a->hexagon_index;
-    // swap
-    a->cost = b->cost;
-    a->hexagon_index = b->hexagon_index;
-
-    b->cost = tmp.cost;
-    b->hexagon_index = tmp.hexagon_index;
-}*/
 
 /**
- * @brief Szudzik pair hashing 
+ * @brief Szudzik pair hashing
  * articolo qui: https://sair.synerise.com/efficient-integer-pairs-hashing/
- * 
+ *
  * @param x primo numero della coppia
  * @param y secondo numero della coppia
  * @return unsigned int hashed
@@ -155,21 +142,21 @@ static inline unsigned int Szudzik(unsigned int x, unsigned int y)
 // hashmap functions
 /**
  * @brief svuota l'hashmap
- * 
- * @param h puntatore alla hashmap
+ *
+ * @param hashmap puntatore alla hashmap
  */
-void hashmap_empty(Hashmap *h)
+void hashmap_empty(Hashmap *hashmap)
 {
-    if (!h->map)
+    if (!hashmap->map)
         return;
-    if (h->size == 0)
+    if (hashmap->size == 0)
         return;
-    for (int i = 0; i < h->capacity; i++)
+    for (int i = 0; i < hashmap->capacity; i++)
     {
         // se in quell'indice è stato allocato un Heap_node
-        if (h->map[i])
+        if (hashmap->map[i])
         {
-            Hashmap_node *curr = h->map[i];
+            Hashmap_node *curr = hashmap->map[i];
             Hashmap_node *next = NULL;
             while (curr)
             {
@@ -178,63 +165,64 @@ void hashmap_empty(Hashmap *h)
                 curr = next;
             }
         }
-        h->map[i] = NULL;
+        hashmap->map[i] = NULL;
     }
-    h->size = 0;
+    hashmap->size = 0;
 }
 /**
- * @brief inizializza l'hashmap
+ * @brief inizializza la hashmap
  *
- * @param h puntatore alla hashmap da inizializzare
+ * @param hashmap puntatore a hashmap da inizializzare
+ * @param capacity grandezza da allocare
  */
-void hashmap_init(Hashmap *h, size_t capacity)
+void hashmap_init(Hashmap *hashmap, size_t capacity)
 {
     /**
-     * Un numero primo per diminuire conflitti
+     * capacity dovrebbe essere un numero primo per diminuire conflitti
      * Lista di numeri primi : http://compoasso.free.fr/primelistweb/page/prime/liste_online_en.php
      */
-    if (h->map)
+    if (hashmap->map)
     {
-        hashmap_empty(h);
-        free(h->map);
+        hashmap_empty(hashmap);
+        free(hashmap->map);
     }
-    h->capacity = capacity;
-    h->size = 0;
-    h->map = (Hashmap_node **)calloc(h->capacity, sizeof(Hashmap_node *));
+    hashmap->capacity = capacity;
+    hashmap->size = 0;
+    hashmap->map = (Hashmap_node **)calloc(hashmap->capacity, sizeof(Hashmap_node *));
 }
 
 // hashing con metodo del resto
 /**
  * @brief funzione di hash
- * 
- * @param h puntatore alla hashmap
+ *
+ * @param hashmap puntatore alla hashmap
  * @param toHash input
- * @return unsigned int 
+ * @return unsigned int
  */
-unsigned int hashing_function(Hashmap *h, unsigned int toHash)
+unsigned int hashing_function(Hashmap *hashmap, unsigned int toHash)
 {
-    unsigned int hashed = toHash % h->capacity;
+    unsigned int hashed = toHash % hashmap->capacity;
     return hashed;
 }
 /**
  * @brief inserisce un elemento nella hashmap
- * 
- * @param h puntatore alla hashmap
+ *
+ * @param hashmap puntatore alla hashmap
  * @param key chiave da inserire
  * @param value valore associato alla chiave
  */
-void hashmap_insert(Hashmap *h, unsigned int key, int value)
+void hashmap_insert(Hashmap *hashmap, unsigned int key, int value)
 {
     // STAMPPRINT(COMMAND_NUMBER, "INSERTING ELEMENT IN CACHE");
-    unsigned int digest = hashing_function(h, key);
+    unsigned int digest = hashing_function(hashmap, key);
     Hashmap_node *new_node = (Hashmap_node *)malloc(sizeof(Hashmap_node));
     new_node->key = key;
     new_node->value = value;
     new_node->next = NULL;
-    Hashmap_node *it = h->map[digest];
+    Hashmap_node *it = hashmap->map[digest];
     if (!it)
     {
-        h->map[digest] = new_node;
+        hashmap->map[digest] = new_node;
     }
     else
     {
@@ -244,20 +232,20 @@ void hashmap_insert(Hashmap *h, unsigned int key, int value)
         }
         it->next = new_node;
     }
-    h->size++;
+    hashmap->size++;
 }
 /**
  * @brief elimina una chiave e il suo valore associato
- * 
- * @param h puntatore alla hashmap
+ *
+ * @param hashmap puntatore alla hashmap
  * @param key chiave da elimare
  */
-void hashmap_delete(Hashmap *h, unsigned int key)
+void hashmap_delete(Hashmap *hashmap, unsigned int key)
 {
-    unsigned int digest = hashing_function(h, key);
+    unsigned int digest = hashing_function(hashmap, key);
 
     Hashmap_node *prev = NULL;
-    Hashmap_node *curr = h->map[digest];
+    Hashmap_node *curr = hashmap->map[digest];
 
     while (curr)
     {
@@ -267,7 +255,7 @@ void hashmap_delete(Hashmap *h, unsigned int key)
             // curr è la testa
             if (!prev)
             {
-                h->map[digest] = curr->next;
+                hashmap->map[digest] = curr->next;
             }
             else
             {
@@ -283,17 +271,17 @@ void hashmap_delete(Hashmap *h, unsigned int key)
     }
 }
 /**
- * @brief cerca una key all'interno della Hashmap h
+ * @brief cerca una key all'interno della Hashmap hashmap
  *
- * @param h puntatore alla hashmap
+ * @param hashmap puntatore alla hashmap
  * @param key chiave da cercare
  * @return value se la key è presente nella hashmap, altrimenti -42
  * (userò questa hashmap per inserire distanze quindi i valori possibili sono -1 oppure distanze >= 0)
  */
-int hashmap_search(Hashmap *h, unsigned int key)
+int hashmap_search(Hashmap *hashmap, unsigned int key)
 {
-    unsigned int digest = hashing_function(h, key);
-    Hashmap_node *list = h->map[digest];
+    unsigned int digest = hashing_function(hashmap, key);
+    Hashmap_node *list = hashmap->map[digest];
     while (list && list->key != key)
     {
         list = list->next;
@@ -323,27 +311,28 @@ static inline int heap_right(int index)
 {
     return (index * 2) + 2;
 }
+
 // NON IN USO
 /**
- * @brief raddoppia la capacità dell'heap riallocando q->min_heap_queue in un nuovo array
+ * @brief raddoppia la capacità dell'heap riallocando min_heap->min_heap_queue in un nuovo array
  *
- * @param q min_heap da ingrandire
+ * @param min_heap puntatore a min_heap da ingrandire
  */
-void heap_grow(Min_heap *q)
+void heap_grow(Min_heap *min_heap)
 {
     // allocazione di memoria per nuovo array, uso calloc per settare tutti i byte a 0
-    Heap_node *newarr = (Heap_node *)calloc(q->capacity * 2, sizeof(Heap_node));
+    Heap_node *newarr = (Heap_node *)calloc(min_heap->capacity * 2, sizeof(Heap_node));
     // copia vecchio array nel nuovo array
-    memcpy(newarr, q->min_heap, sizeof(Heap_node) * q->capacity);
-    free(q->min_heap);
-    q->min_heap = newarr;
-    q->capacity = q->capacity * 2;
+    memcpy(newarr, min_heap->data, sizeof(Heap_node) * min_heap->capacity);
+    free(min_heap->data);
+    min_heap->data = newarr;
+    min_heap->capacity = min_heap->capacity * 2;
 }
 
 // heap functions
 /**
  * @brief scambia due elementi nell'heap
- * 
+ *
  * @param a puntatore Heap_node*
  * @param b puntatore Heap_node*
  */
@@ -362,29 +351,29 @@ static inline void heap_swap(Heap_node *a, Heap_node *b)
 /**
  * @brief inizializza l'heap inizializzando size a 0, capacity e allocando l'array
  *
- * @param q puntatore Min_heap* a heap da inizializzare
+ * @param min_heap puntatore Min_heap* a heap da inizializzare
  * @param capacity capacità dell'heap
  */
-void heap_init(Min_heap *q, size_t capacity)
+void heap_init(Min_heap *min_heap, size_t capacity)
 {
-    if (q->min_heap)
-        free(q->min_heap);
+    if (min_heap->data)
+        free(min_heap->data);
 
-    q->min_heap = (Heap_node *)calloc(capacity, sizeof(Heap_node));
+    min_heap->data = (Heap_node *)calloc(capacity, sizeof(Heap_node));
 
-    q->size = 0;
+    min_heap->size = 0;
     // la capacità dell'heap deve essere la potenza di due maggiore più vicina a queue_max_length
-    q->capacity = capacity;
+    min_heap->capacity = capacity;
 }
 
 /**
- * @brief setta size a 0
+ * @brief set size a 0
  *
- * @param q puntatore Min_heap* a heap da svuotare
+ * @param min_heap puntatore Min_heap* a heap da svuotare
  */
-void heap_empty(Min_heap *q)
+void heap_empty(Min_heap *min_heap)
 {
-    q->size = 0;
+    min_heap->size = 0;
 }
 
 /**
@@ -392,18 +381,18 @@ void heap_empty(Min_heap *q)
  * la proprietà del min-heap. Questa funzione viene chiamata quando viene aggiunto un nuovo elemento allo heap
  * che trovandosi in fondo all'array deve magari essere scambiato con l'elemento padre per metterlo alla radice
  *
- * @param q puntatore Min_heap* a heap
+ * @param min_heap puntatore a min_heap
  * @param index indice
  */
-void heap_heapify_bottom_up(Min_heap *q, int index)
+void heap_heapify_bottom_up(Min_heap *min_heap, int index)
 {
-    while (index > 0 && q->min_heap[heap_parent(index)].min_heap_parameter > q->min_heap[index].min_heap_parameter)
+    while (index > 0 && min_heap->data[heap_parent(index)].min_heap_parameter > min_heap->data[index].min_heap_parameter)
     {
         // scambia index e padre di index
         int parent_index = heap_parent(index);
 
         // scambio dei valori
-        heap_swap(&q->min_heap[parent_index], &q->min_heap[index]);
+        heap_swap(&min_heap->data[parent_index], &min_heap->data[index]);
 
         index = parent_index;
     }
@@ -414,64 +403,78 @@ void heap_heapify_bottom_up(Min_heap *q, int index)
  * la proprietà del min-heap.
  * Questa funzione viene chiamata quando viene eliminato un elemento dallo heap
  *
- * @param q
+ * @param min_heap puntatore a min_heap
  * @param index
  */
-void heap_heapify_top_down(Min_heap *q, int index)
+void heap_heapify_top_down(Min_heap *min_heap, int index)
 {
     int min_index = index;
     int left = heap_left(index);
-    if (left < q->size && q->min_heap[left].min_heap_parameter < q->min_heap[min_index].min_heap_parameter)
+    if (left < min_heap->size && min_heap->data[left].min_heap_parameter < min_heap->data[min_index].min_heap_parameter)
     {
         min_index = left;
     }
 
     int right = heap_right(index);
-    if (right < q->size && q->min_heap[right].min_heap_parameter < q->min_heap[min_index].min_heap_parameter)
+    if (right < min_heap->size && min_heap->data[right].min_heap_parameter < min_heap->data[min_index].min_heap_parameter)
     {
         min_index = right;
     }
 
     if (min_index != index)
     {
-        heap_swap(&q->min_heap[index], &q->min_heap[min_index]);
+        heap_swap(&min_heap->data[index], &min_heap->data[min_index]);
         // propaga aggiornamento heap verso il basso (foglie)
-        heap_heapify_top_down(q, min_index);
+        heap_heapify_top_down(min_heap, min_index);
     }
 }
 /**
  * @brief inserisce un nuovo elemento nell'heap
  *
- * @param q
+ * @param min_heap puntatore a min_heap
  * @param node
  */
-void heap_push(Min_heap *q, Heap_node node)
+void heap_push(Min_heap *min_heap, Heap_node node)
 {
-    q->min_heap[q->size].hexagon_index = node.hexagon_index;
-    q->min_heap[q->size].min_heap_parameter = node.min_heap_parameter;
+    min_heap->data[min_heap->size].hexagon_index = node.hexagon_index;
+    min_heap->data[min_heap->size].min_heap_parameter = node.min_heap_parameter;
 
-    q->size++;
-    if (q->size == q->capacity)
-        heap_grow(q);
-    heap_heapify_bottom_up(q, q->size - 1);
+    min_heap->size++;
+    if (min_heap->size == min_heap->capacity)
+        heap_grow(min_heap);
+    heap_heapify_bottom_up(min_heap, min_heap->size - 1);
 }
 
-Heap_node heap_front(Min_heap *q)
+/**
+ * @brief Restituisce la radice del min_heap
+ *
+ * @param min_heap puntatore a min_heap
+ * @return Heap_node
+ */
+Heap_node heap_front(Min_heap *min_heap)
 {
-    return q->min_heap[0];
+    return min_heap->data[0];
 }
 
-Heap_node heap_pop(Min_heap *q)
+/**
+ * @brief Rimuove la radice del min_heap
+ *
+ * @param min_heap
+ * @return Heap_node
+ */
+Heap_node heap_pop(Min_heap *min_heap)
 {
     // copia dentro result del primo elemento dell'heap
     Heap_node result;
-    result.hexagon_index = q->min_heap[0].hexagon_index;
-    result.min_heap_parameter = q->min_heap[0].min_heap_parameter;
-    heap_swap(&q->min_heap[0], &q->min_heap[q->size - 1]);
+    result.hexagon_index = min_heap->data[0].hexagon_index;
+    result.min_heap_parameter = min_heap->data[0].min_heap_parameter;
 
-    q->size--;
+    // scambia primo e ultimo elemento all'interno dell'array data
+    heap_swap(&min_heap->data[0], &min_heap->data[min_heap->size - 1]);
+    min_heap->size--;
 
-    heap_heapify_top_down(q, 0);
+    // chiama heapify per ricostruire il min_heap top-bottom
+    heap_heapify_top_down(min_heap, 0);
 
     return result;
 }
@@ -516,7 +519,7 @@ static inline void toCoord(int index, int *x, int *y)
 
 /**
  * @brief chiama free() sulla mappa degli esagoni Hexagon *map liberando prima le air_route di un esagono se presenti
- * 
+ *
  */
 static inline void free_map()
 {
@@ -765,7 +768,7 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
             {
                 air_route = air_route->next;
             }
-            air_route->next = air_route_init(NULL,  average / (1 + air_routes_active), target_index, NULL);
+            air_route->next = air_route_init(NULL, average / (1 + air_routes_active), target_index, NULL);
         }
         else
         {
@@ -790,7 +793,7 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
     else
     {
         // aggiungi prima nuova air route
-        map[index].air_routes_head = air_route_init(NULL, map[index].cost, target_index, NULL);    
+        map[index].air_routes_head = air_route_init(NULL, map[index].cost, target_index, NULL);
     }
 
     return (STATUS)0; // OK
@@ -896,7 +899,6 @@ int travel_cost(int xp, int yp, int xd, int yd)
             }
         }
     }
-    // RESULT:
     int result = distance_array[arrival];
     if (result == 0x7FFFFFFF)
         result = -1;
@@ -909,6 +911,7 @@ int main(int argc, char **argv)
     // define I/O streams
     FILE *istream = stdin;
     FILE *ostream = stdout;
+
     // define I/O streams as file
     // istream = fopen("./test/empty.txt", "r");
     // ostream = fopen("output.txt", "w");
@@ -923,7 +926,6 @@ int main(int argc, char **argv)
     // input loop
     do
     {
-
         input = (char *)fgets(buffer, BUFFER_SIZE, istream);
         if (!input)
             break;
@@ -975,10 +977,6 @@ int main(int argc, char **argv)
 
     } while (input);
 
-    DEBUGPRINT("Cleaning up...");
-    TRACE(min_heap_queue.capacity);
-    TRACE(cache.size);
-
     // closing streams
     if (istream != stdin)
         fclose(istream);
@@ -989,8 +987,8 @@ int main(int argc, char **argv)
     if (map)
         free_map();
     heap_empty(&min_heap_queue);
-    if (min_heap_queue.min_heap)
-        free(min_heap_queue.min_heap);
+    if (min_heap_queue.data)
+        free(min_heap_queue.data);
     hashmap_empty(&cache);
     if (cache.map)
         free(cache.map);

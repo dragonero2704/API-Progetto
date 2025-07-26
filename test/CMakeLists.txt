@@ -8,8 +8,9 @@ add_test(NAME long COMMAND movehex_test ${CMAKE_HOME_DIRECTORY}/test/long.txt ${
 add_test(NAME stress_cache COMMAND movehex_test ${CMAKE_HOME_DIRECTORY}/test/stress_cache.txt ${CMAKE_HOME_DIRECTORY}/test/stress_cache.txt.result)
 add_test(NAME stress_cache2 COMMAND movehex_test ${CMAKE_HOME_DIRECTORY}/test/stress_cache2.txt ${CMAKE_HOME_DIRECTORY}/test/stress_cache2.txt.result)
 
-add_custom_command(TARGET movehex_test POST_BUILD
+add_custom_command(
+    TARGET movehex_test POST_BUILD
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/test
     COMMENT "Running tests..."
 )
