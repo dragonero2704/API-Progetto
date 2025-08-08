@@ -59,4 +59,4 @@ jobs:
       run: ls -R
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: ctest -C ${{env.BUILD_TYPE}} -R ^${{matrix.test}}$
+      run: ctest -C ${{env.BUILD_TYPE}} -R ^${{matrix.test}}$  --output-on-failure
