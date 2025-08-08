@@ -10,9 +10,9 @@ on:
         - test/**
   pull_request:
     branches: [ "main" ]
-    paths:
-        - src/**
-        - test/**
+    # paths:
+    #     - src/**
+    #     - test/**
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -44,9 +44,3 @@ jobs:
     
     - name: Test
       run: ctest -C ${{env.BUILD_TYPE}} -R ^${{matrix.test}}$
-
-
-    
-
-    
-
