@@ -1,5 +1,6 @@
 # Prova finale API 2024-2025
 [![CMake build & test](https://github.com/dragonero2704/API-Progetto/actions/workflows/cmake-single-platform.yml/badge.svg)](https://github.com/dragonero2704/API-Progetto/actions/workflows/cmake-single-platform.yml)
+
 Progetto finale del corso Algoritmi e Principi di Informatica (API) del Politecnico di Milano A.A. 2024-2025
 
 ## Descrizione
