@@ -21,7 +21,7 @@ jobs:
     - name: Download ubuntu-latest build files
       uses: actions/download-artifact@v4
       with:
-        name: ubutu-latest-build
+        name: ubuntu-latest-build
         path: ${{github.workspace}}/build
     
     # display files
