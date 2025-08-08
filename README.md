@@ -1,10 +1,13 @@
 # Prova finale API 2024-2025
-[![CMake build & test](https://github.com/dragonero2704/API-Progetto/actions/workflows/build.yml/badge.svg)](https://github.com/dragonero2704/API-Progetto/actions/workflows/build.yml)
+
+[![Tests](https://github.com/dragonero2704/API-Progetto/actions/workflows/build.yml/badge.svg)](https://github.com/dragonero2704/API-Progetto/actions/workflows/build.yml)
 
 Progetto finale del corso Algoritmi e Principi di Informatica (API) del Politecnico di Milano A.A. 2024-2025
 
 ## Descrizione
+
 La [specifica](specifiche.pdf) del progetto richiede di progettare e scrivere un programma che presi in input da `stdin` i comandi di
+
 - `init <n° colonne> <n° righe>`
 - `change_cost <x> <y> <raggio>`
 - `toggle_air_route <x1> <y1> <x2> <y2>`
@@ -14,6 +17,7 @@ e relativi parametri, modifichi una mappa formata da esagoni, cambiandone i cost
 Al fine di ottimizzare il programma, nella [specifica](specifiche.pdf) viene dichiarato che la funzione di travel_cost viene chiamata molto più spesso delle altre.
 
 ## Implementazione
+
 La mappa ha $x$ "colonne" e $y$ "righe", ciò rende possibile l'utilizzo di un sistema di coordinate cartesiane per identificare univocamente gli esagoni che compongono la mappa. Inoltre si nota che conviene rappresentare la mappa (che è un grafo) sotto forma di matrice di adiacenza, in quanto gli esagoni sono sempre connessi agli esagoni direttamente adiacenti. Inoltre gli esagoni hanno disposizione al massimo $5$ "rotte aeree", cioè $5$ collegamenti a esagoni non adiacenti, rappresentati come archi orientati dall'esagono di partenza a quello di arrivo.
 
 Da queste premesse una possibile struttura dati che descrive un esagono della mappa (nodo del grafo) è la seguente:
@@ -34,12 +38,14 @@ typedef struct Hexagon
 ```
 
 Dato che è possibile usare un sistema di coordinate cartesiano per descrivere la mappa degli esagoni. è possibile descrivere le adiacenze (escludendo le rotte aeree) come vettore bidimensioale, differenza tra le coordinate cartesiane di partenza e di arrivo. Ad esempio, l'adiacenza $`\begin{pmatrix}0 \\\ 1\end{pmatrix}`$ rappresenta l'esagono che si trova una riga sopra l'esagono considerato (dalla [specifica](specifiche.pdf) l'origine del piano cartesiano è posizionato in basso a sinistra rispetto alla mappa).
-Tutti i nodi hanno 6 adiacenze (essendo esagoni), $4$ di queste sono comuni a tutti i nodi cioè 
+Tutti i nodi hanno 6 adiacenze (essendo esagoni), $4$ di queste sono comuni a tutti i nodi cioè
+
 ```math 
 \{ \begin{pmatrix}0 \\\ 1\end{pmatrix}, \begin{pmatrix}1 \\\ 0\end{pmatrix}, \begin{pmatrix}0 \\\ -1\end{pmatrix}, \begin{pmatrix}-1 \\\ 0\end{pmatrix}\}
 ```
 
 Le ultime $2$ adiacenze cambiano in funzione della posizione dell'esagono:
+
 - riga con ordinata **pari**: $`\set{\begin{pmatrix}-1 \\\ 1\end{pmatrix},\begin{pmatrix}-1 \\\ -1\end{pmatrix}}`$
 - riga con ordinata **dispari**: $`\set{ \begin{pmatrix}1 \\\ -1\end{pmatrix}, \begin{pmatrix}1 \\\ 1\end{pmatrix} }`$
 
@@ -51,6 +57,7 @@ const char adiacenze[2][6][2] = {
     {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}}     // adiacenze dispari
     };
 ```
+
 (P.S.) è anche possibile utilizzare un solo vettore di adiacenze e moltiplicare per un fattore di $-1$ quando si esamina un esagono su riga dispari, risparmiando $12$ Byte.
 
 ---

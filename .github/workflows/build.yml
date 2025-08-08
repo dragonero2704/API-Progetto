@@ -5,14 +5,14 @@ name: CMake build & test
 on:
   push:
     branches: [ "main" ]
-    # paths:
-    #     - src/**
-    #     - test/**
+    paths:
+        - src/**
+        - test/**
   pull_request:
     branches: [ "main" ]
-    # paths:
-    #     - src/**
-    #     - test/**
+    paths:
+        - src/**
+        - test/**
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
