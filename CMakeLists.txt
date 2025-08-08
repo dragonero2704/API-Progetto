@@ -15,4 +15,3 @@ add_executable(
 set(CMAKE_C_COMPILE_FEATURES "-O2 -DEVAL -std=gnu11 -Wall -Werror -pipe -static -s -lm -g3")
 
 add_subdirectory(test)
-
