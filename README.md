@@ -1,6 +1,6 @@
 # Prova finale API 2024-2025
 
-[![Tests](https://github.com/dragonero2704/API-Progetto/actions/workflows/tests.yml/badge.svg)](https://github.com/dragonero2704/API-Progetto/actions/workflows/tests.yml)
+[![tests](https://github.com/dragonero2704/API-Progetto/actions/workflows/tests.yml/badge.svg)](https://github.com/dragonero2704/API-Progetto/actions/workflows/tests.yml)
 
 Progetto finale del corso Algoritmi e Principi di Informatica (API) del Politecnico di Milano A.A. 2024-2025
 
