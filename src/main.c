@@ -714,7 +714,8 @@ STATUS change_cost(int x, int y, int v, int raggio)
 }
 /**
  * @brief crea (o cancella se esiste) una air route dall'esagono (x1, y1) all'esagono (x2, h2)
- * Il costo della rotta è calcolato come la media di tutte le rotte esistenti + il costo dell'esagono di partenza
+ * Il costo della rotta è calcolato come la media di tutte le rotte esistenti + il costo dell'esagono di partenza 
+ * (rimane uguale al costo di terra)
  *
  * @param x1 ascissa dell'esagono di partenza
  * @param y1 ordinata dell'esagono di partenza
@@ -744,19 +745,17 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
     if (map[index].air_routes_head)
     {
         Air_route *found = NULL;
-        int average = map[index].cost;
         // prima scorrere le air_route
         Air_route *air_route = map[index].air_routes_head;
         unsigned char air_routes_active = 0;
         while (air_route)
         {
-            average += air_route->cost;
             if (air_route->hexagon_index == target_index)
             {
                 found = air_route;
+                break;
             }
             air_route = air_route->next;
-            air_routes_active += 1;
         }
         if (found == NULL)
         {
@@ -768,7 +767,7 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
             {
                 air_route = air_route->next;
             }
-            air_route->next = air_route_init(NULL, average / (1 + air_routes_active), target_index, NULL);
+            air_route->next = air_route_init(NULL, map[index].cost, target_index, NULL);
         }
         else
         {
@@ -912,17 +911,18 @@ int main(int argc, char **argv)
     FILE *istream = stdin;
     FILE *ostream = stdout;
 
-    // define I/O streams as file
+    // define I/O streams from file
     // istream = fopen("./test/empty.txt", "r");
     // ostream = fopen("output.txt", "w");
-
     char buffer[BUFFER_SIZE];
     char *input = NULL;
     char *cmd = NULL;
     char *parameters = NULL;
     int p1, p2, p3, p4;
+
     // init cache
     hashmap_init(&cache, 101);
+
     // input loop
     do
     {
