@@ -22,7 +22,9 @@ int test(std::string input, std::string output)
         return -5;
     // confrontare file output.txt e output file fornito
     std::ifstream expected, out;
-    out.open("output.txt");
+    const std::string candidateFilename = input.substr(input.find_last_of('/')+1) + ".output";
+    std::rename("output.txt", candidateFilename.c_str());
+    out.open(candidateFilename);
     expected.open(output);
 
     if (out.fail())
@@ -45,23 +47,28 @@ int test(std::string input, std::string output)
     out.seekg(std::fstream::beg);
     expected.seekg(std::fstream::beg);
 
-    if(!std::equal(
-        std::istreambuf_iterator<char>(out.rdbuf()),
-        std::istreambuf_iterator<char>(),
-        std::istreambuf_iterator<char>(expected.rdbuf()))) return -1;
+    if (!std::equal(
+            std::istreambuf_iterator<char>(out.rdbuf()),
+            std::istreambuf_iterator<char>(),
+            std::istreambuf_iterator<char>(expected.rdbuf())))
+    {
+        out.close();
+        expected.close();
+        return -1;
+    }
 
     out.close();
     expected.close();
+    std::remove(candidateFilename.c_str());
     return 0;
 }
 
 int main(int argc, char **argv)
 {
-    if(argc < 3)
+    if (argc < 3)
     {
         std::cerr << "Usage: " << argv[0] << " <input_file> <output_file>" << std::endl;
         return -2;
     }
-    int result = test(std::string(argv[1]), std::string(argv[2]));
-    return result;
+    return test(std::string(argv[1]), std::string(argv[2]));
 }

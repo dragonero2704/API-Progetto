@@ -69,7 +69,7 @@ typedef struct Hashmap
 // Air route definition
 typedef struct Air_route
 {
-    int cost;
+    // int cost; Per come è definito il costo della air_route, sarà sempre uguale al costo di terra dell'esagono
     int hexagon_index;
     struct Air_route *next;
 } Air_route;
@@ -107,11 +107,10 @@ int *distance_array = NULL;
  * @param next puntatore al successivo di to_init
  * @return puntatore a air_route inizializzata
  */
-static inline Air_route *air_route_init(Air_route *to_init, int cost, int hexagon_index, Air_route *next)
+static inline Air_route *air_route_init(Air_route *to_init, int hexagon_index, Air_route *next)
 {
     if (!to_init)
         to_init = (Air_route *)malloc(sizeof(Air_route));
-    to_init->cost = cost;
     to_init->hexagon_index = hexagon_index;
     to_init->next = next;
     return to_init;
@@ -638,13 +637,6 @@ STATUS change_cost(int x, int y, int v, int raggio)
     // calcola nuovo costo esagono d'origine
     int origin = toIndex(x, y);
     map[origin].cost = calculate_new_cost(map[origin].cost, v, raggio, 0);
-    // rotte aeree dell'origine
-    Air_route *air_route = map[origin].air_routes_head;
-    while (air_route)
-    {
-        air_route->cost = calculate_new_cost(air_route->cost, v, raggio, 0);
-        air_route = air_route->next;
-    }
 
     // se raggio == 1 non c'è ulteriore propagazione
     if (raggio == 1)
@@ -700,13 +692,6 @@ STATUS change_cost(int x, int y, int v, int raggio)
         {
             // aggiornare esagono i
             map[i].cost = calculate_new_cost(map[i].cost, v, raggio, distance_array[i]);
-            // aggiornare rotte aeree
-            air_route = map[i].air_routes_head;
-            while (air_route)
-            {
-                air_route->cost = calculate_new_cost(air_route->cost, v, raggio, distance_array[i]);
-                air_route = air_route->next;
-            }
         }
     }
     // print_map(x, y, v, raggio);
@@ -767,7 +752,7 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
             {
                 air_route = air_route->next;
             }
-            air_route->next = air_route_init(NULL, map[index].cost, target_index, NULL);
+            air_route->next = air_route_init(NULL, target_index, NULL);
         }
         else
         {
@@ -792,7 +777,7 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
     else
     {
         // aggiungi prima nuova air route
-        map[index].air_routes_head = air_route_init(NULL, map[index].cost, target_index, NULL);
+        map[index].air_routes_head = air_route_init(NULL, target_index, NULL);
     }
 
     return (STATUS)0; // OK
@@ -883,7 +868,7 @@ int travel_cost(int xp, int yp, int xd, int yd)
                 {
                     int air_route_index_destination = air_route->hexagon_index;
                     // il costo sarà dato dal costo della rotta aerea + la distanza del nodo di partenza dalla sorgente
-                    int newdistance = air_route->cost + distance_array[current_hexagon_index];
+                    int newdistance = map[current_hexagon_index].cost + distance_array[current_hexagon_index];
                     if (newdistance < distance_array[air_route_index_destination])
                     {
                         // la distanza nuova proposta è minore di quella attuale
