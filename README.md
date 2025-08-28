@@ -18,14 +18,13 @@ Al fine di ottimizzare il programma, nella [specifica](specifiche.pdf) viene dic
 
 ## Implementazione
 
-La mappa ha $x$ "colonne" e $y$ "righe", ciò rende possibile l'utilizzo di un sistema di coordinate cartesiane per identificare univocamente gli esagoni che compongono la mappa. Inoltre si nota che conviene rappresentare la mappa (che è un grafo) sotto forma di matrice di adiacenza, in quanto gli esagoni sono sempre connessi agli esagoni direttamente adiacenti. Inoltre gli esagoni hanno disposizione al massimo $5$ "rotte aeree", cioè $5$ collegamenti a esagoni non adiacenti, rappresentati come archi orientati dall'esagono di partenza a quello di arrivo.
+La mappa ha $x$ "colonne" e $y$ "righe", ciò rende possibile l'utilizzo di un sistema di coordinate cartesiane per identificare univocamente gli esagoni che compongono la mappa. Inoltre si nota che conviene rappresentare la mappa (che è un grafo) sotto forma di matrice di adiacenza, in quanto gli esagoni sono sempre connessi agli esagoni direttamente adiacenti. Inoltre gli esagoni hanno disposizione al massimo $5$ "rotte aeree", cioè $5$ collegamenti a esagoni non adiacenti, rappresentati come archi orientati dall'esagono di partenza a quello di arrivo. Per come è definito il costo della rotta aerea, si nota che sarà sempre uguale al costo di attraversamento di terra.
 
 Da queste premesse una possibile struttura dati che descrive un esagono della mappa (nodo del grafo) è la seguente:
 
 ```C
 typedef struct Air_route
 {
-    int cost; // costo della rotta aerea
     int hexagon_index; // indice dell'esagono ottenuto tramite linearizzazione della matrice di adiacenza
     struct Air_route *next; // puntatore alla rotta aerea successiva
 } Air_route;
