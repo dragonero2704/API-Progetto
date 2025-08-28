@@ -15,18 +15,16 @@ typedef char STATUS;
 
 int test(std::string input, std::string output)
 {
-    const std::string command = EXECUTABLENAME + input + " > output.txt";
+    const std::string candidateFilename = input.substr(input.find_last_of('/')+1) + ".output";
+    const std::string command = EXECUTABLENAME + input + " > " + candidateFilename;
     // std::cout<<command<<std::endl;
     int ex_res = std::system(command.c_str());
     if (ex_res)
         return -5;
     // confrontare file output.txt e output file fornito
     std::ifstream expected, out;
-    const std::string candidateFilename = input.substr(input.find_last_of('/')+1) + ".output";
-    std::rename("output.txt", candidateFilename.c_str());
-    out.open(candidateFilename);
+    out.open(candidateFilename, std::ios_base::out);
     expected.open(output);
-
     if (out.fail())
     {
         std::cerr << "Failed to open \'output.txt\'" << std::endl;

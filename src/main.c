@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 // helper macros
 // #define _DEBUG
@@ -40,48 +39,48 @@ typedef char STATUS;
 // Min heap queue
 typedef struct Heap_node
 {
-    int min_heap_parameter;
-    int hexagon_index;
-} Heap_node;
+    int min_heap_parameter; // 4 bytes
+    int hexagon_index;      // 4 bytes
+} Heap_node;                // 8 bytes
 
 typedef struct Min_heap
 {
-    Heap_node *data;
-    size_t size;
-    size_t capacity;
-} Min_heap;
+    Heap_node *data;        // 8 bytes
+    size_t size;            // 8 bytes
+    size_t capacity;        // 8 bytes
+} Min_heap;                 // 24 bytes
 
 // hashmap
 typedef struct Hashmap_node
 {
-    unsigned int key;
-    int value;
-    struct Hashmap_node *next;
-} Hashmap_node;
+    unsigned int key;       // 8 bytes
+    int value;              // 4 bytes
+    struct Hashmap_node *next; // 8 bytes
+} Hashmap_node;             // 20 bytes
 
 typedef struct Hashmap
 {
-    Hashmap_node **map;
-    size_t size;
-    size_t capacity;
+    Hashmap_node **map;     // 8 bytes
+    size_t size;            // 8 bytes
+    size_t capacity;        // 8 bytes
 } Hashmap;
 
 // Air route definition
 typedef struct Air_route
 {
     // int cost; Per come è definito il costo della air_route, sarà sempre uguale al costo di terra dell'esagono
-    int hexagon_index;
-    struct Air_route *next;
-} Air_route;
+    int hexagon_index;      // 4 bytes
+    struct Air_route *next; // 8 bytes
+} Air_route;                // 12 bytes
 
 // Hexagon type definition
 typedef struct Hexagon
 {
     // hexagon cost
-    int cost;
+    int cost;               // 4 bytes
     // list of air_routes
-    Air_route *air_routes_head;
-} Hexagon;
+    Air_route *air_routes_head; // 8 bytes
+} Hexagon;                  // 12 bytes
 
 /* ============== GLOBALI ============== */
 Hexagon *map = NULL;
@@ -101,16 +100,14 @@ int *distance_array = NULL;
 /**
  * @brief inizializza una air_route
  *
- * @param to_init puntatore Air_route* alla Air_route da inizializzare
  * @param cost costo di to_init
  * @param hexagon_index esagono di arrivo della air_route
  * @param next puntatore al successivo di to_init
  * @return puntatore a air_route inizializzata
  */
-static inline Air_route *air_route_init(Air_route *to_init, int hexagon_index, Air_route *next)
+static inline Air_route *air_route_init(int hexagon_index, Air_route *next)
 {
-    if (!to_init)
-        to_init = (Air_route *)malloc(sizeof(Air_route));
+    Air_route* to_init = (Air_route *)malloc(sizeof(Air_route));
     to_init->hexagon_index = hexagon_index;
     to_init->next = next;
     return to_init;
@@ -129,12 +126,12 @@ static inline unsigned int Szudzik(unsigned int x, unsigned int y)
     if (x > y)
     {
         // x = max{x,y}
-        return (unsigned int)x * x + x + y;
+        return x * x + x + y;
     }
     else
     {
         // x  != max{x,y}
-        return (unsigned int)y * y + x;
+        return y * y + x;
     }
 }
 
@@ -586,9 +583,11 @@ STATUS init(int x, int y)
  * FONDAMENTALE l'uso del float, senza il quale questa funzione darebbe
  * un risultato differente (e errato)
  * \n
- * fraction = (float)(raggio - distance) / raggio;
+ * float fraction = (float)(raggio - distance) / (float)(raggio) * (float)(v);
  * \n
- * newcost = original_cost + (int) floorf(v * fraction);
+ * int delta = fraction >= 0 ? (int)fraction : (int)(fraction) - 1;
+ * \n
+ * int newcost = original_cost + delta;
  * @param original_cost costo originario
  * @param v             fattore da scalare v passato nella change_cost
  * @param raggio        raggio fornito dalla change_cost
@@ -598,8 +597,9 @@ STATUS init(int x, int y)
 static inline int calculate_new_cost(int original_cost, int v, int raggio, int distance)
 {
     // =====================================================
-    float fraction = (float)(raggio - distance) / raggio;
-    int newcost = original_cost + (int)floorf(v * fraction);
+    float fraction = (float)(raggio - distance) / (float)(raggio) * (float)(v);
+    int delta = fraction >= 0 ? (int)fraction : (int)(fraction) - 1;
+    int newcost = original_cost + delta;
     // =====================================================
     if (newcost < 0)
         newcost = 0;
@@ -752,7 +752,7 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
             {
                 air_route = air_route->next;
             }
-            air_route->next = air_route_init(NULL, target_index, NULL);
+            air_route->next = air_route_init(target_index, NULL);
         }
         else
         {
@@ -777,7 +777,7 @@ STATUS toggle_air_route(int x1, int y1, int x2, int y2)
     else
     {
         // aggiungi prima nuova air route
-        map[index].air_routes_head = air_route_init(NULL, target_index, NULL);
+        map[index].air_routes_head = air_route_init(target_index, NULL);
     }
 
     return (STATUS)0; // OK

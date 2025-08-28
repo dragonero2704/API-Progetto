@@ -12,6 +12,13 @@ add_executable(
     src/main.c 
 )
 
-set(CMAKE_C_COMPILE_FEATURES "-O2 -DEVAL -std=gnu11 -Wall -Werror -pipe -static -s -lm -g3")
+# set(CMAKE_C_FLAGS "-O2 -DEVAL -std=gnu11 -Wall -Werror -pipe -static -s -g3")
+target_compile_options(movehex PRIVATE 
+        -DEVAL -std=gnu11 -Wall -Werror -pipe -static -s
+        $<$<CONFIG:Debug>:-g3 >
+        $<$<CONFIG:Release>:-O2>
+)
+
+target_link_options(movehex PRIVATE -lm)
 
 add_subdirectory(test)
