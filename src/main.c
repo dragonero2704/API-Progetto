@@ -45,24 +45,24 @@ typedef struct Heap_node
 
 typedef struct Min_heap
 {
-    Heap_node *data;        // 8 bytes
-    size_t size;            // 8 bytes
-    size_t capacity;        // 8 bytes
-} Min_heap;                 // 24 bytes
+    Heap_node *data; // 8 bytes
+    size_t size;     // 8 bytes
+    size_t capacity; // 8 bytes
+} Min_heap;          // 24 bytes
 
 // hashmap
 typedef struct Hashmap_node
 {
-    unsigned int key;       // 8 bytes
-    int value;              // 4 bytes
+    unsigned int key;          // 8 bytes
+    int value;                 // 4 bytes
     struct Hashmap_node *next; // 8 bytes
-} Hashmap_node;             // 20 bytes
+} Hashmap_node;                // 20 bytes
 
 typedef struct Hashmap
 {
-    Hashmap_node **map;     // 8 bytes
-    size_t size;            // 8 bytes
-    size_t capacity;        // 8 bytes
+    Hashmap_node **map; // 8 bytes
+    size_t size;        // 8 bytes
+    size_t capacity;    // 8 bytes
 } Hashmap;
 
 // Air route definition
@@ -77,10 +77,10 @@ typedef struct Air_route
 typedef struct Hexagon
 {
     // hexagon cost
-    int cost;               // 4 bytes
+    int cost; // 4 bytes
     // list of air_routes
     Air_route *air_routes_head; // 8 bytes
-} Hexagon;                  // 12 bytes
+} Hexagon;                      // 12 bytes
 
 /* ============== GLOBALI ============== */
 Hexagon *map = NULL;
@@ -107,7 +107,7 @@ int *distance_array = NULL;
  */
 static inline Air_route *air_route_init(int hexagon_index, Air_route *next)
 {
-    Air_route* to_init = (Air_route *)malloc(sizeof(Air_route));
+    Air_route *to_init = (Air_route *)malloc(sizeof(Air_route));
     to_init->hexagon_index = hexagon_index;
     to_init->next = next;
     return to_init;
@@ -405,24 +405,27 @@ void heap_heapify_bottom_up(Min_heap *min_heap, int index)
 void heap_heapify_top_down(Min_heap *min_heap, int index)
 {
     int min_index = index;
-    int left = heap_left(index);
-    if (left < min_heap->size && min_heap->data[left].min_heap_parameter < min_heap->data[min_index].min_heap_parameter)
+    int left, right;
+    do
     {
-        min_index = left;
-    }
+        left = heap_left(index);
+        if (left < min_heap->size && min_heap->data[left].min_heap_parameter < min_heap->data[min_index].min_heap_parameter)
+        {
+            min_index = left;
+        }
 
-    int right = heap_right(index);
-    if (right < min_heap->size && min_heap->data[right].min_heap_parameter < min_heap->data[min_index].min_heap_parameter)
-    {
-        min_index = right;
-    }
+        right = heap_right(index);
+        if (right < min_heap->size && min_heap->data[right].min_heap_parameter < min_heap->data[min_index].min_heap_parameter)
+        {
+            min_index = right;
+        }
 
-    if (min_index != index)
-    {
+        if (min_index == index)
+            return;
+
         heap_swap(&min_heap->data[index], &min_heap->data[min_index]);
-        // propaga aggiornamento heap verso il basso (foglie)
-        heap_heapify_top_down(min_heap, min_index);
-    }
+        index = min_index;
+    } while (left < min_heap->size && right < min_heap->size);
 }
 /**
  * @brief inserisce un nuovo elemento nell'heap
@@ -598,7 +601,7 @@ static inline int calculate_new_cost(int original_cost, int v, int raggio, int d
 {
     // =====================================================
     float fraction = (float)(raggio - distance) / (float)(raggio) * (float)(v);
-    int delta = fraction >= 0 ? (int)fraction : (int)(fraction) - 1;
+    int delta = fraction >= 0 ? (int)fraction : (int)(fraction)-1;
     int newcost = original_cost + delta;
     // =====================================================
     if (newcost < 0)
@@ -699,7 +702,7 @@ STATUS change_cost(int x, int y, int v, int raggio)
 }
 /**
  * @brief crea (o cancella se esiste) una air route dall'esagono (x1, y1) all'esagono (x2, h2)
- * Il costo della rotta è calcolato come la media di tutte le rotte esistenti + il costo dell'esagono di partenza 
+ * Il costo della rotta è calcolato come la media di tutte le rotte esistenti + il costo dell'esagono di partenza
  * (rimane uguale al costo di terra)
  *
  * @param x1 ascissa dell'esagono di partenza
