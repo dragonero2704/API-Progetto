@@ -678,25 +678,13 @@ STATUS change_cost(int x, int y, int v, int raggio)
                 if (inBounds(adx, ady) && distance_array[ad_index] > current_distance + 1)
                 {
                     distance_array[ad_index] = current_distance + 1;
-                    Heap_node d;
-                    d.min_heap_parameter = current_distance + 1;
-                    d.hexagon_index = ad_index;
-                    heap_push(&min_heap_queue, d);
+                    map[ad_index].cost = calculate_new_cost(map[ad_index].cost, v, raggio, current_distance + 1);
+                    heap_push(&min_heap_queue, (Heap_node){current_distance + 1, ad_index});
                 }
             }
         }
     }
 
-    // iterare attraverso tutte le distanze, e se la distanza è != 0x7FFFFFFF
-    // aggiornare il costo del nodo e delle sue rotte aeree
-    for (int i = 0; i < MAPSIZE; i++)
-    {
-        if (distance_array[i] != 0x7FFFFFFF)
-        {
-            // aggiornare esagono i
-            map[i].cost = calculate_new_cost(map[i].cost, v, raggio, distance_array[i]);
-        }
-    }
     // print_map(x, y, v, raggio);
     return (STATUS)0;
 }
@@ -876,10 +864,7 @@ int travel_cost(int xp, int yp, int xd, int yd)
                     {
                         // la distanza nuova proposta è minore di quella attuale
                         distance_array[air_route_index_destination] = newdistance;
-                        Heap_node qn;
-                        qn.min_heap_parameter = newdistance;
-                        qn.hexagon_index = air_route_index_destination;
-                        heap_push(&min_heap_queue, qn);
+                        heap_push(&min_heap_queue, (Heap_node){newdistance, air_route_index_destination});
                     }
                     air_route = air_route->next;
                 }

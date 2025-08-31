@@ -14,7 +14,7 @@ add_executable(
 
 # set(CMAKE_C_FLAGS "-O2 -DEVAL -std=gnu11 -Wall -Werror -pipe -static -s -g3")
 target_compile_options(movehex PRIVATE 
-        -DEVAL -std=gnu11 -Wall -Werror -pipe -static -s
+        -DEVAL -std=gnu11 -Wall -Werror -pipe -static
         $<$<CONFIG:Debug>:-g3 >
         $<$<CONFIG:Release>:-O2>
 )
