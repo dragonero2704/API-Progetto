@@ -308,7 +308,6 @@ static inline int heap_right(int index)
     return (index * 2) + 2;
 }
 
-// NON IN USO
 /**
  * @brief raddoppia la capacità dell'heap riallocando min_heap->min_heap_queue in un nuovo array
  *
@@ -367,7 +366,7 @@ void heap_init(Min_heap *min_heap, size_t capacity)
  *
  * @param min_heap puntatore Min_heap* a heap da svuotare
  */
-void heap_empty(Min_heap *min_heap)
+static inline void heap_empty(Min_heap *min_heap)
 {
     min_heap->size = 0;
 }
@@ -653,11 +652,9 @@ STATUS change_cost(int x, int y, int v, int raggio)
 
     // svuota l'heap
     heap_empty(&min_heap_queue);
+
     // inserire esagono di partenza all'interno dell'heap
-    Heap_node heap_data;
-    heap_data.hexagon_index = origin;
-    heap_data.min_heap_parameter = 0;
-    heap_push(&min_heap_queue, heap_data);
+    heap_push(&min_heap_queue, (Heap_node){0, origin});
 
     while (min_heap_queue.size)
     {
@@ -813,10 +810,7 @@ int travel_cost(int xp, int yp, int xd, int yd)
     }
     distance_array[departing] = 0;
     // inserire esagono d'origine nella coda
-    Heap_node heap_data;
-    heap_data.hexagon_index = departing;
-    heap_data.min_heap_parameter = 0;
-    heap_push(&min_heap_queue, heap_data);
+    heap_push(&min_heap_queue, (Heap_node){0, departing});
 
     int current_hexagon_index = 0;
     while (min_heap_queue.size)
@@ -843,10 +837,7 @@ int travel_cost(int xp, int yp, int xd, int yd)
                 if (inBounds(adx, ady) && distance_array[ad_index] > newdistance)
                 {
                     distance_array[ad_index] = newdistance;
-                    Heap_node qn;
-                    qn.min_heap_parameter = newdistance;
-                    qn.hexagon_index = ad_index;
-                    heap_push(&min_heap_queue, qn);
+                    heap_push(&min_heap_queue, (Heap_node){newdistance, ad_index});
                 }
             }
 

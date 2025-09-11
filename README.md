@@ -18,7 +18,8 @@ Al fine di ottimizzare il programma, nella [specifica](specifiche.pdf) viene dic
 
 ## Implementazione
 
-La mappa ha $x$ "colonne" e $y$ "righe", ciò rende possibile l'utilizzo di un sistema di coordinate cartesiane per identificare univocamente gli esagoni che compongono la mappa. Inoltre si nota che conviene rappresentare la mappa (che è un grafo) sotto forma di matrice di adiacenza, in quanto gli esagoni sono sempre connessi agli esagoni direttamente adiacenti. Inoltre gli esagoni hanno disposizione al massimo $5$ "rotte aeree", cioè $5$ collegamenti a esagoni non adiacenti, rappresentati come archi orientati dall'esagono di partenza a quello di arrivo. Per come è definito il costo della rotta aerea, si nota che sarà sempre uguale al costo di attraversamento di terra.
+La mappa ha $x$ "colonne" e $y$ "righe", ciò rende possibile l'utilizzo di un sistema di coordinate cartesiane per identificare univocamente gli esagoni che compongono la mappa. Inoltre si nota che conviene rappresentare la mappa (che è un grafo) sotto forma di matrice di adiacenza, in quanto gli esagoni sono sempre connessi agli esagoni direttamente adiacenti. Inoltre gli esagoni hanno a disposizione al massimo $5$ "rotte aeree", cioè $5$ collegamenti a esagoni non adiacenti, rappresentati come archi orientati dall'esagono di partenza a quello di arrivo. Per come è definito il costo della rotta aerea, si nota che sarà sempre uguale al costo di attraversamento di terra.
+Il costo delle rotte aeree, per come è definito nella specifica sarà sempre uguale al costo di terra dell'esagono di partenza.
 
 Da queste premesse una possibile struttura dati che descrive un esagono della mappa (nodo del grafo) è la seguente:
 
@@ -39,7 +40,7 @@ typedef struct Hexagon
 Dato che è possibile usare un sistema di coordinate cartesiano per descrivere la mappa degli esagoni. è possibile descrivere le adiacenze (escludendo le rotte aeree) come vettore bidimensioale, differenza tra le coordinate cartesiane di partenza e di arrivo. Ad esempio, l'adiacenza $`\begin{pmatrix}0 \\\ 1\end{pmatrix}`$ rappresenta l'esagono che si trova una riga sopra l'esagono considerato (dalla [specifica](specifiche.pdf) l'origine del piano cartesiano è posizionato in basso a sinistra rispetto alla mappa).
 Tutti i nodi hanno 6 adiacenze (essendo esagoni), $4$ di queste sono comuni a tutti i nodi cioè
 
-```math 
+```math
 \{ \begin{pmatrix}0 \\\ 1\end{pmatrix}, \begin{pmatrix}1 \\\ 0\end{pmatrix}, \begin{pmatrix}0 \\\ -1\end{pmatrix}, \begin{pmatrix}-1 \\\ 0\end{pmatrix}\}
 ```
 
