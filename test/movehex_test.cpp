@@ -1,4 +1,5 @@
 #include <iostream>
+#include <filesystem>
 #include <fstream>
 #include <cassert>
 #include <cstring>
@@ -13,26 +14,25 @@
 
 typedef char STATUS;
 
-int test(std::string input, std::string output)
+int test(const std::filesystem::path& executable_path, const std::filesystem::path& input_path, const std::filesystem::path& expected_output_path)
 {
-    const std::string candidateFilename = input.substr(input.find_last_of('/')+1) + ".output";
-    const std::string command = EXECUTABLENAME + input + " > " + candidateFilename;
+    const std::string output_filename = input_path.stem().concat(".txt.actual");
+    const std::string command = executable_path.string() + " < " + input_path.string() + " > " + output_filename;
     // std::cout<<command<<std::endl;
-    int ex_res = std::system(command.c_str());
-    if (ex_res)
+    if (std::system(command.c_str()))
         return -5;
     // confrontare file output.txt e output file fornito
     std::ifstream expected, out;
-    out.open(candidateFilename, std::ios_base::out);
-    expected.open(output);
+    out.open(output_filename, std::ios_base::in);
+    expected.open(expected_output_path);
     if (out.fail())
     {
-        std::cerr << "Failed to open \'output.txt\'" << std::endl;
+        std::cerr << "Failed to open "<< output_filename<< std::endl;
         return -3;
     }
     if (expected.fail())
     {
-        std::cerr << "Failed to open \'" << output << "\'" << std::endl;
+        std::cerr << "Failed to open \'" << expected_output_path << "\'" << std::endl;
         return -4;
     }
 
@@ -57,7 +57,7 @@ int test(std::string input, std::string output)
 
     out.close();
     expected.close();
-    std::remove(candidateFilename.c_str());
+    std::remove(output_filename.c_str());
     return 0;
 }
 
@@ -66,7 +66,28 @@ int main(int argc, char **argv)
     if (argc < 3)
     {
         std::cerr << "Usage: " << argv[0] << " <input_file> <output_file>" << std::endl;
+        return -3;
+    }
+    const auto executable_file_path = std::filesystem::path(argv[1]);
+    const auto input_file_path = std::filesystem::path(argv[2]);
+    const auto expected_result_path = std::filesystem::path(argv[3]);
+
+    // check existence
+    if(!std::filesystem::exists(executable_file_path))
+    {
+        std::cout << executable_file_path << " does not exists";
+        return -1;
+    }
+    if(!std::filesystem::exists(input_file_path))
+    {
+        std::cout << input_file_path << " does not exists\n";
         return -2;
     }
-    return test(std::string(argv[1]), std::string(argv[2]));
+    if(!std::filesystem::exists(expected_result_path))
+    {
+        std::cout << expected_result_path << " does not exists\n";
+        return -3;
+    }
+    
+    return test(executable_file_path, input_file_path, expected_result_path);
 }
