@@ -6,12 +6,6 @@
 
 #define BLOCKSIZE 4096
 
-#if defined(_WIN32) || defined(_WIN64)
-#define EXECUTABLENAME "..\\movehex.exe < "
-#else
-#define EXECUTABLENAME "../movehex < "
-#endif
-
 typedef char STATUS;
 
 int test(const std::filesystem::path& executable_path, const std::filesystem::path& input_path, const std::filesystem::path& expected_output_path)
