@@ -147,7 +147,7 @@ void hashmap_empty(Hashmap *hashmap)
         return;
     if (hashmap->size == 0)
         return;
-    for (int i = 0; i < hashmap->capacity; i++)
+    for (size_t i = 0; i < hashmap->capacity; i++)
     {
         // se in quell'indice è stato allocato un Heap_node
         if (hashmap->map[i])
@@ -401,10 +401,10 @@ void heap_heapify_bottom_up(Min_heap *min_heap, int index)
  * @param min_heap puntatore a min_heap
  * @param index
  */
-void heap_heapify_top_down(Min_heap *min_heap, int index)
+void heap_heapify_top_down(Min_heap *min_heap, size_t index)
 {
-    int min_index = index;
-    int left, right;
+    size_t min_index = index;
+    size_t left, right;
     do
     {
         left = heap_left(index);
@@ -869,7 +869,7 @@ int travel_cost(int xp, int yp, int xd, int yd)
     return result;
 }
 
-int main(int argc, char **argv)
+int main(void)
 {
     // define I/O streams
     FILE *istream = stdin;
