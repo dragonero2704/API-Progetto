@@ -6,6 +6,7 @@ set(C_STANDARD_REQUIRED ON)
 project(API)
 
 enable_testing()
+add_subdirectory(test)
 
 add_executable(
     movehex
@@ -18,5 +19,3 @@ target_compile_options(movehex PRIVATE
         $<$<CONFIG:Debug>:-g3>
         $<$<CONFIG:Release>:-O2>
 )
-
-add_subdirectory(test)
