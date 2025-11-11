@@ -1,7 +1,7 @@
 add_executable(movehex_test movehex_test.cpp)
 
 target_compile_features(movehex_test PRIVATE cxx_std_17)
-
+target_link_libraries(movehex_test PRIVATE stdc++fs)
 set(EXECUTABLE_PATH ${CMAKE_HOME_DIRECTORY}/build/movehex)
 
 if(WIN32)
