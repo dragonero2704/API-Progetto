@@ -10,8 +10,8 @@ typedef char STATUS;
 
 int test(const std::filesystem::path& executable_path, const std::filesystem::path& input_path, const std::filesystem::path& expected_output_path)
 {
-    const std::string output_filename = input_path.stem().concat(".txt.actual");
-    const std::string command = executable_path.string() + " < " + input_path.string() + " > " + output_filename;
+    const auto output_filename = input_path.stem().concat(".txt.actual");
+    const std::string command = executable_path.string() + " < " + input_path.string() + " > " + output_filename.string();
     // std::cout<<command<<std::endl;
     if (std::system(command.c_str()))
         return -5;
@@ -21,12 +21,12 @@ int test(const std::filesystem::path& executable_path, const std::filesystem::pa
     expected.open(expected_output_path);
     if (out.fail())
     {
-        std::cerr << "Failed to open "<< output_filename<< std::endl;
+        std::cerr << "Failed to open "<< output_filename << std::endl;
         return -3;
     }
     if (expected.fail())
     {
-        std::cerr << "Failed to open \'" << expected_output_path << "\'" << std::endl;
+        std::cerr << "Failed to open \'" << expected_output_path.string() << "\'" << std::endl;
         return -4;
     }
 
