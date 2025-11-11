@@ -51,7 +51,7 @@ int test(const std::filesystem::path& executable_path, const std::filesystem::pa
 
     out.close();
     expected.close();
-    std::remove(output_filename.c_str());
+    std::remove(output_filename.string().c_str());
     return 0;
 }
 
