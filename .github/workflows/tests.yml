@@ -49,8 +49,8 @@ jobs:
         - name: "Grant execution permission"
           working-directory: ${{github.workspace}}/build
           run: |
-           chmod +x movehex
-           chmod +x test/movehex_test
+           chmod +x movhex
+           chmod +x test/movhex_test
         - name: "Test selected: [ ${{matrix.test}} ]"
           working-directory: ${{github.workspace}}/build
           run: ctest -C Release -R ^${{matrix.test}}$  --output-on-failure
