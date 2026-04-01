@@ -1,9 +1,49 @@
-# Final Project 2025 - Movehex
+# Final Project 2025 - Movhex
 
 [![Build](https://github.com/dragonero2704/API-Progetto/actions/workflows/build.yml/badge.svg)](https://github.com/dragonero2704/API-Progetto/actions/workflows/build.yml)
 [![Tests](https://github.com/dragonero2704/API-Progetto/actions/workflows/tests.yml/badge.svg)](https://github.com/dragonero2704/API-Progetto/actions/workflows/tests.yml)
 
 Final project for "Algorithms and Principles of Computer Science" course of Politecnico di Milano, 2025
+
+## Build
+
+Navigate to this repository, then run
+
+```bash
+mkdir build
+cd build
+cmake ..
+```
+
+This will create a build directory to put all build files.
+
+To build the program type
+```bash
+cmake --build .
+```
+or
+```bash
+make
+```
+
+## Run
+To run the program cd into the build directory then type
+
+```bash
+./movhex
+```
+
+## Test
+
+In the `test` folder there are some test and a `cpp` source to compile to be able to execute the test. This file is built together with the main program into another executable in `build/test`.
+
+To run the tests, cd into the `build` directory, then type
+
+```bash
+ctest
+```
+
+Use `-j <n>` option to specify the number of jobs to run the tests in parallel (recommended)
 
 ## Description
 
